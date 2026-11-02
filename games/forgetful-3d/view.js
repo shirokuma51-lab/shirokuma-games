@@ -48,15 +48,34 @@ window.createDungeonView = function(host) {
  const shadow=new T.Mesh(new T.CircleGeometry(.41,16),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.24,depthWrite:false}));shadow.rotation.x=-Math.PI/2;scene.add(shadow);
  const ripples=[];for(let i=0;i<3;i++){const ring=new T.Mesh(new T.RingGeometry(.35,.37,24),new T.MeshBasicMaterial({color:'#bbf0ee',transparent:true,opacity:.5,side:T.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;scene.add(ring);ripples.push(ring);}
 
- let level=null,tiles=[],items=[],ghostModels=[],waterMaterials=[];const dungeon=new T.Group();scene.add(dungeon);
- function load(next){level=next;dungeon.clear();tiles=[];items=[];ghostModels=[];
-  const floorMat=[mat('#626673'),mat('#686b77'),mat('#5d6570')],stone=mat('#5e6475'),cap=mat('#7b8190'),water=mat('#267e99',{transparent:true,opacity:.9,roughness:.35});
+ // Shared procedural stone textures: irregular branching fissures and mineral specks.
+ function stoneTexture(seed,wall){const random=C.rng(seed),canvas=document.createElement('canvas');canvas.width=canvas.height=128;const ctx=canvas.getContext('2d');ctx.fillStyle=wall?'#939b9b':'#a5aba7';ctx.fillRect(0,0,128,128);
+  for(let i=0;i<480;i++){const n=Math.floor(110+random()*100);ctx.fillStyle=`rgba(${n},${n},${n},.12)`;ctx.fillRect(random()*128,random()*128,1+random()*3,1+random()*3);}
+  let x=18+random()*30,y=12+random()*22;ctx.lineWidth=.7;ctx.strokeStyle=seed%4===0?'rgba(0,0,0,0)':'rgba(25,33,35,.46)';ctx.beginPath();ctx.moveTo(x,y);
+  for(let i=0;i<5;i++){x+=5+random()*13;y+=8+random()*12;ctx.lineTo(x,y);if(i===2){ctx.moveTo(x,y);ctx.lineTo(x-10,y+8);ctx.lineTo(x-14,y+20);ctx.moveTo(x,y);}}ctx.stroke();
+  const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;return texture;}
+ const floorMat=[0,1,2].map(i=>mat(['#777b80','#81837f','#727b7b'][i],{map:stoneTexture(30+i,false)}));
+ const wallMat=[0,1,2].map(i=>mat(['#68777b','#6c777a','#717b77'][i],{map:stoneTexture(80+i,true)}));
+ const cap=mat('#89928a',{map:stoneTexture(112,true)}),water=mat('#257d90',{transparent:true,opacity:.9,roughness:.25});
+ const vineMat=mat('#47664a'),leafMat=mat('#668258'),dropMat=mat('#a1dbe3',{transparent:true,opacity:.8,roughness:.1});
+ const rippleGeometry=new T.RingGeometry(.08,.095,20),rippleMat=mat('#71bdc4',{transparent:true,opacity:.5,side:T.DoubleSide,depthWrite:false});
+ let level=null,tiles=[],items=[],ghostModels=[],drips=[],waterRipples=[];const dungeon=new T.Group();scene.add(dungeon);
+ function load(next){level=next;dungeon.clear();tiles=[];items=[];ghostModels=[];drips=[];waterRipples=[];const random=C.rng(level.seed^0x71e8);
   for(let y=0;y<level.size;y++)for(let x=0;x<level.size;x++){
    const type=level.grid[y][x],g=new T.Group();g.position.set(x+.5,0,y+.5);dungeon.add(g);
-   if(type===1){box(g,.99,.94,.99,0,.42,0,stone);box(g,1,.08,1,0,.92,0,cap);}
-   else if(type===2){box(g,1,.1,1,0,-.7,0,mat('#183e50'));box(g,1,.025,1,0,.025,0,water);}
+   const stone=wallMat[(x*3+y)%3];
+   if(type===1){box(g,.99,.94,.99,0,.42,0,stone);box(g,1,.08,1,0,.92,0,cap);
+    const faces=[[0,1,0],[1,0,Math.PI/2],[0,-1,Math.PI],[-1,0,-Math.PI/2]];
+    for(const [dx,dy,rotation] of faces){const neighbor=level.grid[y+dy]?.[x+dx];if(neighbor===undefined||neighbor===1)continue;
+     const wet=neighbor===2;
+     if(wet||random()<.19){const vine=new T.Group();vine.position.set(dx*.505,0,dy*.505);vine.rotation.y=rotation;g.add(vine);
+      for(let i=0;i<4;i++){const stem=box(vine,.025,.20,.018,Math.sin(i*1.7)*.065,.87-i*.16,.012,vineMat);stem.rotation.z=Math.sin(i)*.25;const leaf=oval(vine,.14,.075,.035,(i%2?1:-1)*.07+stem.position.x,.83-i*.16,.025,leafMat);leaf.rotation.z=i%2?.45:-.45;}}
+     if(wet){const drop=oval(dungeon,.055,.12,.055,x+.5+dx*.65,.7,y+.5+dy*.65,dropMat);drips.push({drop,phase:random()});}
+    }
+   }
+   else if(type===2){box(g,1,.1,1,0,-.7,0,mat('#183e50'));box(g,1.005,.025,1.005,0,.025,0,water);const ring=new T.Mesh(rippleGeometry,rippleMat);ring.rotation.x=-Math.PI/2;ring.position.set((random()-.5)*.6,.045,(random()-.5)*.6);g.add(ring);waterRipples.push({ring,phase:random()});}
    else if(type===3){box(g,1,.1,1,0,-.7,0,mat('#03050b'));for(const dx of [-.45,.45])box(g,.08,.13,1,dx,-.04,0,stone);}
-   else{box(g,.99,.13,.99,0,-.08,0,floorMat[(x+y)%3]);if(type===4){box(g,.34,.9,1,-.33,.4,0,stone);box(g,.34,.9,1,.33,.4,0,stone);}}
+   else{const slab=box(g,.99,.13,.99,0,-.08,0,floorMat[(x+y)%3]);slab.rotation.y=((x*7+y*11)%4)*Math.PI/2;if(type===4){box(g,.34,.9,1,-.33,.4,0,stone);box(g,.34,.9,1,.33,.4,0,stone);}}
    tiles.push({g,x,y,type});
   }
   level.doors.forEach((d,i)=>{const g=new T.Group();g.position.set(d.x+.5,0,d.y+.5);dungeon.add(g);const trim=mat(i?'#b29bd2':'#e6c68d');box(g,.12,1.15,.16,-.37,.575,0,trim);box(g,.12,1.15,.16,.37,.575,0,trim);box(g,.86,.14,.2,0,1.17,0,trim);box(g,.62,1,.08,0,.55,0,mat('#30465b'));const gem=oval(g,.18,.18,.07,0,.85,.07,trim);if(!i){gem.geometry=sphere;const star=box(g,.18,.18,.05,0,.85,.1,trim);star.rotation.z=Math.PI/4;}items.push({g,x:d.x,y:d.y});});
@@ -74,7 +93,10 @@ window.createDungeonView = function(host) {
   cape.rotation.x=.08+(moving?Math.sin(time*8)*.1:0);shadow.visible=!swimming;shadow.position.set(player.x,.015,player.y);
   ripples.forEach((r,i)=>{r.visible=swimming;r.position.set(player.x,.06+i*.002,player.y);const phase=(time*.7+i/3)%1;r.scale.setScalar(.8+phase*1.7);r.material.opacity=(1-phase)*.38;});
   const visible=(x,y)=>C.visible(level.grid,player.x,player.y,x,y,4.5);
-  for(const cell of tiles){cell.g.visible=visible(cell.x,cell.y);if(cell.type===1){const foreground=cell.y+.5>player.y&&cell.y+.5-player.y<2&&Math.abs(cell.x+.5-player.x)<.8;cell.g.scale.y=foreground?.3:1;}}
+  // Geometry stays in place at its original height. Lighting, not popping walls,
+  // marks the sight radius; collectibles and ghosts still respect wall occlusion.
+  for(const {drop,phase} of drips){const fall=(time*.9+phase)%1;drop.position.y=.86-fall*.79;drop.scale.y=.06+fall*.09;}
+  for(const {ring,phase} of waterRipples){const t=(time*.6+phase)%1;ring.scale.setScalar(.5+t*2.7);ring.visible=t<.9;}
   for(const item of items)item.g.visible=visible(item.x,item.y)&&(!item.food||!item.food.eaten);
   for(const {g,ghost} of ghostModels){const [x,y]=C.ghostPosition(ghost,time);g.position.set(x,Math.sin(time*3)*.045,y);g.visible=ghost.alive&&visible(Math.floor(x),Math.floor(y));}
   renderer.render(scene,camera);

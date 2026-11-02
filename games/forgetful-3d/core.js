@@ -31,8 +31,20 @@
       const openings=dirs.filter(([dx,dy])=>{const a=x+dx*2,b=y+dy*2;return a>0&&b>0&&a<size-1&&b<size-1&&x+dx+y+dy>4&&grid[y+dy][x+dx]===1&&grid[b][a]===0;});
       if(openings.length){const [dx,dy]=openings[Math.floor(random()*openings.length)];grid[y+dy][x+dx]=0;}
     }
+    // Enlarge selected stretches, not the footprint: shortcuts keep walks compact.
+    // Keep the entrance bridge and its adjacent walls untouched.
+    const wideCount=3+Math.min(3,Math.floor(floor/7));
+    for(let i=0;i<wideCount;i++){
+      const x=3+2*Math.floor(random()*((size-5)/2)),y=3+2*Math.floor(random()*((size-5)/2));
+      const horizontal=random()<.5,w=horizontal?3:2,h=horizontal?2:3;
+      for(let dy=0;dy<h;dy++)for(let dx=0;dx<w;dx++)if(x+dx<size-1&&y+dy<size-1)grid[y+dy][x+dx]=0;
+    }
+    // A broad flooded chamber beyond the protected entrance on swimming floors.
+    // Only water is carved here, so the swimming requirement cannot be bypassed.
+    if(required==='swim')for(let y=1;y<=5;y++)for(let x=1;x<=5;x++)if(x+y>4)grid[y][x]=2;
+    if(required){const gate=neighbors(grid,1,1)[0];grid[gate[1]][gate[0]]=barriers[required];}
     const dist=distances(grid,[1,1]);
-    const cells=[...dist].map(([k,d])=>({p:k.split(',').map(Number),d})).sort((a,b)=>b.d-a.d);
+    const cells=[...dist].map(([k,d])=>({p:k.split(',').map(Number),d})).filter(c=>grid[c.p[1]][c.p[0]]===0).sort((a,b)=>b.d-a.d);
     const dead=cells.filter(({p:[x,y]})=>neighbors(grid,x,y).length===1&&x+y>2);
     const first=cells[0].p,second=cells.find(c=>Math.abs(c.p[0]-first[0])+Math.abs(c.p[1]-first[1])>size/2).p;
     const used=new Set(['1,1',first.join(','),second.join(',')]);
@@ -47,10 +59,8 @@
     const take=(min,max)=>{const pool=cells.filter(c=>c.d>=min&&c.d<=max&&!used.has(c.p.join(',')));const c=pool[Math.floor(random()*pool.length)]||cells.find(c=>!used.has(c.p.join(',')));used.add(c.p.join(','));return {x:c.p[0],y:c.p[1]};};
     const max=cells[0].d;
     const notes=doors.map((door,i)=>({...take(6,max*.75),door:i}));
-    const foods=Array.from({length:floor<=5?3:2},()=>({...take(5,max),eaten:false}));
+    const foods=[{...take(5,max),eaten:false}];
     const decor=[];
-    // The protected entrance connector remains a bridge even after braiding.
-    if(required){const gate=neighbors(grid,1,1)[0];grid[gate[1]][gate[0]]=barriers[required];}
     const ghostCount=floor<=5?0:floor<=10?1:floor<=20?2:3;
     const ghosts=[];
     for(let i=0;i<ghostCount;i++){
@@ -80,7 +90,7 @@
     const dx=x+.5-px,dy=y+.5-py,steps=Math.ceil(Math.hypot(dx,dy)*12);
     for(let i=1;i<steps;i++){const a=Math.floor(px+dx*i/steps),b=Math.floor(py+dy*i/steps);if(a===x&&b===y)return true;if(grid[b]?.[a]===1)return false;}return true;
   }
-  function ghostPosition(ghost,time){const route=ghost.route;if(route.length===1)return route[0].map(v=>v+.5);const length=route.length-1,p=(time*.65+ghost.phase*length)%(length*2),d=p>length?length*2-p:p,index=Math.min(length-1,Math.floor(d)),fraction=d-index;return [route[index][0]+.5+(route[index+1][0]-route[index][0])*fraction,route[index][1]+.5+(route[index+1][1]-route[index][1])*fraction];}
+  function ghostPosition(ghost,time){const route=ghost.route;if(route.length===1)return route[0].map(v=>v+.5);const length=route.length-1,p=(time*.85+ghost.phase*length)%(length*2),d=p>length?length*2-p:p,index=Math.min(length-1,Math.floor(d)),fraction=d-index;return [route[index][0]+.5+(route[index+1][0]-route[index][0])*fraction,route[index][1]+.5+(route[index+1][1]-route[index][1])*fraction];}
   root.ForgetfulCore={skills,names,barriers,rng,derive,makeFloor,canEnter,clue,visible,ghostPosition,distances};
   if(typeof module!=='undefined')module.exports=root.ForgetfulCore;
 })(typeof window!=='undefined'?window:globalThis);
