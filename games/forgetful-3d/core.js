@@ -75,6 +75,12 @@
     return {seed,floor,size,grid,doors,notes,foods,decor,ghosts,required};
   }
   function canEnter(tile,inventory){return tile===0||Object.entries(barriers).some(([id,n])=>n===tile&&inventory.includes(id));}
+  function makePlaza(){const size=11,grid=Array.from({length:size},(_,y)=>Array.from({length:size},(_,x)=>x<2||x>8||y<1||y>9?1:0));
+    grid[4][3]=grid[4][7]=1;
+    return {seed:718,floor:0,size,grid,required:null,plaza:true,doors:[{x:5,y:2,label:'入口',entry:true}],
+      notes:[{x:4,y:7,title:'まずは、歩いてみよう',text:'PC：矢印キー / WASDで移動。\nスマホ：左下のスティックを動かします。\nメモや扉の近くで「調べる」（E / Space）。'},
+        {x:7,y:5,title:'扉を見分けよう',text:'金色の ★ は星の扉。青色の ☾ は月の扉。\nダンジョンではメモのマークと扉を見比べよう。\n覚える能力は最大4つ。覚えずに進むこともできます。'},
+        {x:3,y:2,title:'準備ができたら',text:'中央の「入口」の扉を調べると、地下1階へ進めます。\nこの広場にお化けはいません。時間制限もありません。\n練習だけでは、保存中の冒険は消えません。'}],foods:[],decor:[],ghosts:[]};}
   function clue(door,floor){
     const answer=`${door.label}の扉の先：${door.required?names[door.required]+'が必要。':'移動能力なしで進める。'}`;
     if(floor<=5)return {text:answer,hint:'管理人のメモ。今回はそのまま読める。',answer};
@@ -91,6 +97,7 @@
     for(let i=1;i<steps;i++){const a=Math.floor(px+dx*i/steps),b=Math.floor(py+dy*i/steps);if(a===x&&b===y)return true;if(grid[b]?.[a]===1)return false;}return true;
   }
   function ghostPosition(ghost,time){const route=ghost.route;if(route.length===1)return route[0].map(v=>v+.5);const length=route.length-1,p=(time*.85+ghost.phase*length)%(length*2),d=p>length?length*2-p:p,index=Math.min(length-1,Math.floor(d)),fraction=d-index;return [route[index][0]+.5+(route[index+1][0]-route[index][0])*fraction,route[index][1]+.5+(route[index+1][1]-route[index][1])*fraction];}
-  root.ForgetfulCore={skills,names,barriers,rng,derive,makeFloor,canEnter,clue,visible,ghostPosition,distances};
+  function ghostHeading(ghost,time){const a=ghostPosition(ghost,time),b=ghostPosition(ghost,time+.001);return Math.atan2(b[0]-a[0],b[1]-a[1]);}
+  root.ForgetfulCore={skills,names,barriers,rng,derive,makeFloor,makePlaza,canEnter,clue,visible,ghostPosition,ghostHeading,distances};
   if(typeof module!=='undefined')module.exports=root.ForgetfulCore;
 })(typeof window!=='undefined'?window:globalThis);

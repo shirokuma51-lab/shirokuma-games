@@ -59,6 +59,12 @@ window.createDungeonView = function(host) {
  const cap=mat('#89928a',{map:stoneTexture(112,true)}),water=mat('#257d90',{transparent:true,opacity:.9,roughness:.25});
  const vineMat=mat('#47664a'),leafMat=mat('#668258'),dropMat=mat('#a1dbe3',{transparent:true,opacity:.8,roughness:.1});
  const rippleGeometry=new T.RingGeometry(.08,.095,20),rippleMat=mat('#71bdc4',{transparent:true,opacity:.5,side:T.DoubleSide,depthWrite:false});
+ // Camera-facing symbols remain recognizable from either side of a doorway.
+ const doorSigns=['★','☾','入口'].map((label,i)=>{const c=document.createElement('canvas');c.width=256;c.height=160;const ctx=c.getContext('2d');ctx.fillStyle=['#44321d','#163d65','#294c46'][i];ctx.strokeStyle=['#ffe19a','#92d6ff','#b6f4cf'][i];ctx.lineWidth=7;ctx.beginPath();ctx.roundRect(8,8,240,144,25);ctx.fill();ctx.stroke();ctx.fillStyle=ctx.strokeStyle;
+  if(i===0){ctx.beginPath();for(let n=0;n<10;n++){const a=-Math.PI/2+n*Math.PI/5,r=n%2?22:49;const x=128+Math.cos(a)*r,y=80+Math.sin(a)*r;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();ctx.fill();}
+  else if(i===1){ctx.beginPath();ctx.arc(125,80,48,0,Math.PI*2);ctx.fill();ctx.fillStyle='#163d65';ctx.beginPath();ctx.arc(147,63,44,0,Math.PI*2);ctx.fill();}
+  else{ctx.font='bold 65px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,128,82);}
+  const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;return new T.SpriteMaterial({map,transparent:true,depthWrite:false});});
  let level=null,tiles=[],items=[],ghostModels=[],drips=[],waterRipples=[];const dungeon=new T.Group();scene.add(dungeon);
  function load(next){level=next;dungeon.clear();tiles=[];items=[];ghostModels=[];drips=[];waterRipples=[];const random=C.rng(level.seed^0x71e8);
   for(let y=0;y<level.size;y++)for(let x=0;x<level.size;x++){
@@ -78,7 +84,7 @@ window.createDungeonView = function(host) {
    else{const slab=box(g,.99,.13,.99,0,-.08,0,floorMat[(x+y)%3]);slab.rotation.y=((x*7+y*11)%4)*Math.PI/2;if(type===4){box(g,.34,.9,1,-.33,.4,0,stone);box(g,.34,.9,1,.33,.4,0,stone);}}
    tiles.push({g,x,y,type});
   }
-  level.doors.forEach((d,i)=>{const g=new T.Group();g.position.set(d.x+.5,0,d.y+.5);dungeon.add(g);const trim=mat(i?'#b29bd2':'#e6c68d');box(g,.12,1.15,.16,-.37,.575,0,trim);box(g,.12,1.15,.16,.37,.575,0,trim);box(g,.86,.14,.2,0,1.17,0,trim);box(g,.62,1,.08,0,.55,0,mat('#30465b'));const gem=oval(g,.18,.18,.07,0,.85,.07,trim);if(!i){gem.geometry=sphere;const star=box(g,.18,.18,.05,0,.85,.1,trim);star.rotation.z=Math.PI/4;}items.push({g,x:d.x,y:d.y});});
+  level.doors.forEach((d,i)=>{const g=new T.Group();g.position.set(d.x+.5,0,d.y+.5);dungeon.add(g);const kind=d.entry?2:i,trim=mat(['#eac46c','#73bdf3','#8ccbb0'][kind]);box(g,.12,1.15,.16,-.37,.575,0,trim);box(g,.12,1.15,.16,.37,.575,0,trim);box(g,.86,.14,.2,0,1.17,0,trim);box(g,.62,1,.08,0,.55,0,mat(['#826026','#285e9d','#3d7668'][kind]));oval(g,.09,.09,.08,.21,.5,.07,trim);const sign=new T.Sprite(doorSigns[kind]);sign.position.set(0,1.47,0);sign.scale.set(.85,.53,1);g.add(sign);items.push({g,x:d.x,y:d.y});});
   level.notes.forEach(n=>{const g=new T.Group();g.position.set(n.x+.5,0,n.y+.5);dungeon.add(g);box(g,.08,.36,.08,0,.18,0,mat('#917451'));box(g,.38,.32,.07,0,.47,0,mat('#e4cc97'));for(let i=0;i<3;i++)box(g,.25,.02,.015,0,.54-i*.06,.045,mat('#86714e'));items.push({g,x:n.x,y:n.y});});
   level.foods.forEach(f=>{const g=new T.Group();g.position.set(f.x+.5,.08,f.y+.5);dungeon.add(g);cylinder(g,.2,.2,.08,0,.08,0,mat('#dca159'));cylinder(g,.21,.21,.065,0,.15,0,mat('#62402c'));box(g,.39,.03,.39,0,.19,0,mat('#edc658'));cylinder(g,.23,.23,.04,0,.23,0,mat('#74a957'));oval(g,.46,.2,.46,0,.31,0,mat('#efb965'));items.push({g,x:f.x,y:f.y,food:f});});
   level.ghosts.forEach(ghost=>{const g=new T.Group();dungeon.add(g);oval(g,.62,.7,.5,0,.68,0,mat('#d0dded'));for(let i=-1;i<=1;i++)oval(g,.22,.25,.4,i*.19,.39,0,mat('#d0dded'));oval(g,.075,.11,.04,-.12,.76,.24,mat('#343248'));oval(g,.075,.11,.04,.12,.76,.24,mat('#343248'));ghostModels.push({g,ghost});});
@@ -98,7 +104,7 @@ window.createDungeonView = function(host) {
   for(const {drop,phase} of drips){const fall=(time*.9+phase)%1;drop.position.y=.86-fall*.79;drop.scale.y=.06+fall*.09;}
   for(const {ring,phase} of waterRipples){const t=(time*.6+phase)%1;ring.scale.setScalar(.5+t*2.7);ring.visible=t<.9;}
   for(const item of items)item.g.visible=visible(item.x,item.y)&&(!item.food||!item.food.eaten);
-  for(const {g,ghost} of ghostModels){const [x,y]=C.ghostPosition(ghost,time);g.position.set(x,Math.sin(time*3)*.045,y);g.visible=ghost.alive&&visible(Math.floor(x),Math.floor(y));}
+  for(const {g,ghost} of ghostModels){const [x,y]=C.ghostPosition(ghost,time);g.position.set(x,Math.sin(time*3)*.045,y);g.rotation.y=C.ghostHeading(ghost,time);g.visible=ghost.alive&&visible(Math.floor(x),Math.floor(y));}
   renderer.render(scene,camera);
   // Screen-space circular vignette, anchored to a stable height, not the walking bob.
   const point=new T.Vector3(player.x,.85,player.y).project(camera);host.style.setProperty('--light-x',((point.x+1)*50)+'%');host.style.setProperty('--light-y',((1-point.y)*50)+'%');
