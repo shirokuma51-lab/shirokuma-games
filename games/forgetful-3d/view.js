@@ -1,0 +1,87 @@
+/* Miniature renderer. Game rules and persistence live in game.js. */
+window.createDungeonView = function(host) {
+ const T=THREE,C=ForgetfulCore;
+ const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'low-power'});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+ renderer.domElement.setAttribute('aria-label','周囲だけが見える3D迷路');host.append(renderer.domElement);
+ const scene=new T.Scene();scene.background=new T.Color('#050910');
+ scene.add(new T.HemisphereLight(0xe4eaff,0x544056,1.8));const sun=new T.DirectionalLight(0xffe1af,2.6);sun.position.set(-4,8,5);scene.add(sun);
+ const camera=new T.OrthographicCamera(-4,4,4,-4,.1,70);camera.position.set(0,9.45,7.3);camera.lookAt(0,.45,0);
+ const playerUniform={value:new T.Vector3(1.5,0,1.5)},materialCache=new Map();
+ function mat(color,extra={}){const key=color+JSON.stringify(extra);if(materialCache.has(key))return materialCache.get(key);const m=new T.MeshStandardMaterial({color,roughness:.65,metalness:0,...extra});
+ m.onBeforeCompile=shader=>{shader.uniforms.uExplorer=playerUniform;shader.vertexShader='varying vec3 vDungeonWorld;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvDungeonWorld = (modelMatrix * vec4(transformed,1.0)).xyz;');shader.fragmentShader='uniform vec3 uExplorer;\nvarying vec3 vDungeonWorld;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>','float lanternDistance=length(vDungeonWorld.xz-uExplorer.xz); float lanternFade=1.0-smoothstep(0.8,4.15,lanternDistance); outgoingLight *= 0.035 + 0.965 * lanternFade;\n#include <opaque_fragment>');};
+ m.customProgramCacheKey=()=> 'dungeon-soft-light-v1';materialCache.set(key,m);return m;}
+ const palette={skin:mat('#efbc8e'),hair:mat('#483344'),shirt:mat('#46877e'),hat:mat('#9c683e'),brim:mat('#b47e4c'),band:mat('#573d34'),gold:mat('#edbc61'),cape:mat('#8057ae'),capeDark:mat('#603f88'),pants:mat('#766958'),boots:mat('#513d35'),eyes:mat('#252938'),white:mat('#fff3d6'),bag:mat('#987450'),belt:mat('#504234')};
+ const roundCache=new Map();
+ function box(parent,w,h,d,x,y,z,material){
+  const radius=Math.min(w,h,d)*.18,key=[w,h,d].join(',');let geo=roundCache.get(key);
+  if(!geo){geo=new T.BoxGeometry(1,1,1,4,4,4);const p=geo.attributes.position,n=new T.Vector3(),inner=new T.Vector3();
+   for(let i=0;i<p.count;i++){n.set(p.getX(i)*w,p.getY(i)*h,p.getZ(i)*d);inner.set(Math.max(-w/2+radius,Math.min(w/2-radius,n.x)),Math.max(-h/2+radius,Math.min(h/2-radius,n.y)),Math.max(-d/2+radius,Math.min(d/2-radius,n.z)));n.sub(inner).normalize().multiplyScalar(radius).add(inner);p.setXYZ(i,n.x,n.y,n.z);}geo.computeVertexNormals();roundCache.set(key,geo);}
+  const m=new T.Mesh(geo,material);m.position.set(x,y,z);parent.add(m);return m;
+ }
+ const sphere=new T.SphereGeometry(1,20,14);
+ function oval(parent,w,h,d,x,y,z,material){const m=new T.Mesh(sphere,material);m.scale.set(w/2,h/2,d/2);m.position.set(x,y,z);parent.add(m);return m;}
+ const cylinderCache=new Map();
+ function cylinder(parent,rt,rb,h,x,y,z,material){const key=[rt,rb,h].join();if(!cylinderCache.has(key))cylinderCache.set(key,new T.CylinderGeometry(rt,rb,h,32));const m=new T.Mesh(cylinderCache.get(key),material);m.position.set(x,y,z);parent.add(m);return m;}
+ const hero=new T.Group(),body=new T.Group();hero.add(body);scene.add(hero);
+ // A rounded miniature sculpt with the same costume and articulated joints.
+ oval(body,.63,.68,.45,0,.95,0,palette.shirt);box(body,.57,.10,.40,0,.73,0,palette.belt);box(body,.13,.11,.035,0,.73,.225,palette.gold);
+ oval(body,.74,.67,.61,0,1.55,0,palette.skin);
+ oval(body,.75,.44,.62,0,1.75,-.045,palette.hair);oval(body,.14,.34,.17,-.32,1.61,.025,palette.hair);oval(body,.14,.32,.17,.32,1.62,.025,palette.hair);
+ oval(body,.13,.18,.11,-.35,1.51,0,palette.skin);oval(body,.13,.18,.11,.35,1.51,0,palette.skin);
+ oval(body,.085,.11,.045,-.14,1.57,.286,palette.eyes);oval(body,.085,.11,.045,.14,1.57,.286,palette.eyes);
+ oval(body,.025,.032,.018,-.15,1.592,.308,palette.white);oval(body,.025,.032,.018,.13,1.592,.308,palette.white);
+ oval(body,.12,.105,.12,0,1.46,.30,palette.skin);oval(body,.11,.026,.025,0,1.375,.272,palette.band);
+ const blush=mat('#dd9984');oval(body,.12,.06,.02,-.22,1.445,.244,blush);oval(body,.12,.06,.02,.22,1.445,.244,blush);
+ const brim=cylinder(body,.51,.49,.075,0,1.87,.015,palette.brim);brim.scale.z=.83;
+ const crown=cylinder(body,.28,.34,.32,0,2.035,-.035,palette.hat);crown.scale.z=.88;
+ const band=cylinder(body,.335,.342,.075,0,1.93,-.035,palette.band);band.scale.z=.89;
+ box(body,.13,.12,.035,.19,1.93,.26,palette.gold);box(body,.055,.065,.04,.19,1.93,.28,palette.band);
+ const feather=oval(body,.11,.34,.04,.36,2.14,-.02,palette.white);feather.rotation.z=-.3;
+ const cape=new T.Group();cape.position.set(0,1.25,-.22);body.add(cape);
+ const cloth=new T.CylinderGeometry(.26,.39,.78,20,1,true,Math.PI/2,Math.PI);const cloakMaterial=palette.cape.clone();cloakMaterial.side=T.DoubleSide;
+ const cloak=new T.Mesh(cloth,cloakMaterial);cloak.position.set(0,-.32,.08);cape.add(cloak);
+ oval(body,.72,.18,.48,0,1.22,0,palette.cape);oval(body,.12,.12,.06,.05,1.2,.255,palette.gold);
+ box(body,.4,.42,.24,0,1,-.43,palette.bag);box(body,.42,.14,.25,0,1.23,-.43,palette.brim);box(body,.05,.38,.03,-.12,1,-.56,palette.band);box(body,.05,.38,.03,.12,1,-.56,palette.band);
+ function limb(x,y,z,isArm){const pivot=new T.Group();pivot.position.set(x,y,z);body.add(pivot);if(isArm){oval(pivot,.23,.30,.25,0,-.13,0,palette.shirt);oval(pivot,.16,.26,.18,0,-.34,0,palette.skin);oval(pivot,.19,.18,.21,0,-.48,0,palette.band);}else{oval(pivot,.24,.39,.27,0,-.17,0,palette.pants);box(pivot,.26,.24,.36,0,-.43,.055,palette.boots);}return pivot;}
+ const arms=[limb(-.39,1.15,0,true),limb(.39,1.15,0,true)],legs=[limb(-.155,.63,0,false),limb(.155,.63,0,false)];
+ const shadow=new T.Mesh(new T.CircleGeometry(.41,16),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.24,depthWrite:false}));shadow.rotation.x=-Math.PI/2;scene.add(shadow);
+ const ripples=[];for(let i=0;i<3;i++){const ring=new T.Mesh(new T.RingGeometry(.35,.37,24),new T.MeshBasicMaterial({color:'#bbf0ee',transparent:true,opacity:.5,side:T.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;scene.add(ring);ripples.push(ring);}
+
+ let level=null,tiles=[],items=[],ghostModels=[],waterMaterials=[];const dungeon=new T.Group();scene.add(dungeon);
+ function load(next){level=next;dungeon.clear();tiles=[];items=[];ghostModels=[];
+  const floorMat=[mat('#626673'),mat('#686b77'),mat('#5d6570')],stone=mat('#5e6475'),cap=mat('#7b8190'),water=mat('#267e99',{transparent:true,opacity:.9,roughness:.35});
+  for(let y=0;y<level.size;y++)for(let x=0;x<level.size;x++){
+   const type=level.grid[y][x],g=new T.Group();g.position.set(x+.5,0,y+.5);dungeon.add(g);
+   if(type===1){box(g,.99,.94,.99,0,.42,0,stone);box(g,1,.08,1,0,.92,0,cap);}
+   else if(type===2){box(g,1,.1,1,0,-.7,0,mat('#183e50'));box(g,1,.025,1,0,.025,0,water);}
+   else if(type===3){box(g,1,.1,1,0,-.7,0,mat('#03050b'));for(const dx of [-.45,.45])box(g,.08,.13,1,dx,-.04,0,stone);}
+   else{box(g,.99,.13,.99,0,-.08,0,floorMat[(x+y)%3]);if(type===4){box(g,.34,.9,1,-.33,.4,0,stone);box(g,.34,.9,1,.33,.4,0,stone);}}
+   tiles.push({g,x,y,type});
+  }
+  level.doors.forEach((d,i)=>{const g=new T.Group();g.position.set(d.x+.5,0,d.y+.5);dungeon.add(g);const trim=mat(i?'#b29bd2':'#e6c68d');box(g,.12,1.15,.16,-.37,.575,0,trim);box(g,.12,1.15,.16,.37,.575,0,trim);box(g,.86,.14,.2,0,1.17,0,trim);box(g,.62,1,.08,0,.55,0,mat('#30465b'));const gem=oval(g,.18,.18,.07,0,.85,.07,trim);if(!i){gem.geometry=sphere;const star=box(g,.18,.18,.05,0,.85,.1,trim);star.rotation.z=Math.PI/4;}items.push({g,x:d.x,y:d.y});});
+  level.notes.forEach(n=>{const g=new T.Group();g.position.set(n.x+.5,0,n.y+.5);dungeon.add(g);box(g,.08,.36,.08,0,.18,0,mat('#917451'));box(g,.38,.32,.07,0,.47,0,mat('#e4cc97'));for(let i=0;i<3;i++)box(g,.25,.02,.015,0,.54-i*.06,.045,mat('#86714e'));items.push({g,x:n.x,y:n.y});});
+  level.foods.forEach(f=>{const g=new T.Group();g.position.set(f.x+.5,.08,f.y+.5);dungeon.add(g);cylinder(g,.2,.2,.08,0,.08,0,mat('#dca159'));cylinder(g,.21,.21,.065,0,.15,0,mat('#62402c'));box(g,.39,.03,.39,0,.19,0,mat('#edc658'));cylinder(g,.23,.23,.04,0,.23,0,mat('#74a957'));oval(g,.46,.2,.46,0,.31,0,mat('#efb965'));items.push({g,x:f.x,y:f.y,food:f});});
+  level.ghosts.forEach(ghost=>{const g=new T.Group();dungeon.add(g);oval(g,.62,.7,.5,0,.68,0,mat('#d0dded'));for(let i=-1;i<=1;i++)oval(g,.22,.25,.4,i*.19,.39,0,mat('#d0dded'));oval(g,.075,.11,.04,-.12,.76,.24,mat('#343248'));oval(g,.075,.11,.04,.12,.76,.24,mat('#343248'));ghostModels.push({g,ghost});});
+ }
+ function render(player,time,moving,heading,skills){if(!level)return;const swimming=level.grid[Math.floor(player.y)]?.[Math.floor(player.x)]===2;
+  playerUniform.value.set(player.x,0,player.y);camera.position.set(player.x,9.45,player.y+7.3);
+  hero.position.set(player.x,swimming?-.72:0,player.y);hero.rotation.y=heading;const wave=Math.sin(time*(swimming?6:10));
+  const tile=level.grid[Math.floor(player.y)]?.[Math.floor(player.x)];hero.scale.x=tile===4?.55:1;
+  if(tile===3)hero.position.y=.22+Math.abs(Math.sin(time*8))*.2;
+  body.position.y=moving?(swimming?Math.sin(time*5)*.045:Math.abs(wave)*.055):0;body.rotation.x=swimming?-.2:0;
+  for(let i=0;i<2;i++){const sign=i?1:-1;legs[i].rotation.x=moving?wave*.55*sign:0;arms[i].rotation.x=swimming?-.9+(moving?Math.sin(time*6+sign)*.55:0):(moving?-wave*.65*sign:0);arms[i].rotation.z=swimming?sign*(.7+(moving?Math.cos(time*6)*.22:0)):sign*.05;}
+  cape.rotation.x=.08+(moving?Math.sin(time*8)*.1:0);shadow.visible=!swimming;shadow.position.set(player.x,.015,player.y);
+  ripples.forEach((r,i)=>{r.visible=swimming;r.position.set(player.x,.06+i*.002,player.y);const phase=(time*.7+i/3)%1;r.scale.setScalar(.8+phase*1.7);r.material.opacity=(1-phase)*.38;});
+  const visible=(x,y)=>C.visible(level.grid,player.x,player.y,x,y,4.5);
+  for(const cell of tiles){cell.g.visible=visible(cell.x,cell.y);if(cell.type===1){const foreground=cell.y+.5>player.y&&cell.y+.5-player.y<2&&Math.abs(cell.x+.5-player.x)<.8;cell.g.scale.y=foreground?.3:1;}}
+  for(const item of items)item.g.visible=visible(item.x,item.y)&&(!item.food||!item.food.eaten);
+  for(const {g,ghost} of ghostModels){const [x,y]=C.ghostPosition(ghost,time);g.position.set(x,Math.sin(time*3)*.045,y);g.visible=ghost.alive&&visible(Math.floor(x),Math.floor(y));}
+  renderer.render(scene,camera);
+  // Screen-space circular vignette, anchored to a stable height, not the walking bob.
+  const point=new T.Vector3(player.x,.85,player.y).project(camera);host.style.setProperty('--light-x',((point.x+1)*50)+'%');host.style.setProperty('--light-y',((1-point.y)*50)+'%');
+ }
+ function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);const aspect=w/h,vertical=Math.max(5.25,4.58/aspect);camera.left=-vertical*aspect/2;camera.right=vertical*aspect/2;camera.top=vertical/2;camera.bottom=-vertical/2;camera.updateProjectionMatrix();}
+ new ResizeObserver(resize).observe(host);resize();
+ return {load,render,camera,renderer,hero,scene};
+};
