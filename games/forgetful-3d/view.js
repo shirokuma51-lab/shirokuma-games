@@ -7,10 +7,10 @@ window.createDungeonView = function(host) {
  const scene=new T.Scene();scene.background=new T.Color('#050910');
  scene.add(new T.HemisphereLight(0xe4eaff,0x544056,1.8));const sun=new T.DirectionalLight(0xffe1af,2.6);sun.position.set(-4,8,5);scene.add(sun);
  const camera=new T.OrthographicCamera(-4,4,4,-4,.1,70);camera.position.set(0,9.45,7.3);camera.lookAt(0,.45,0);
- const playerUniform={value:new T.Vector3(1.5,0,1.5)},materialCache=new Map();
+ const playerUniform={value:new T.Vector3(1.5,0,1.5)},plazaUniform={value:0},materialCache=new Map();
  function mat(color,extra={}){const key=color+JSON.stringify(extra);if(materialCache.has(key))return materialCache.get(key);const m=new T.MeshStandardMaterial({color,roughness:.65,metalness:0,...extra});
- m.onBeforeCompile=shader=>{shader.uniforms.uExplorer=playerUniform;shader.vertexShader='varying vec3 vDungeonWorld;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvDungeonWorld = (modelMatrix * vec4(transformed,1.0)).xyz;');shader.fragmentShader='uniform vec3 uExplorer;\nvarying vec3 vDungeonWorld;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>','float lanternDistance=length(vDungeonWorld.xz-uExplorer.xz); float lanternFade=1.0-smoothstep(0.8,4.15,lanternDistance); outgoingLight *= 0.035 + 0.965 * lanternFade;\n#include <opaque_fragment>');};
- m.customProgramCacheKey=()=> 'dungeon-soft-light-v1';materialCache.set(key,m);return m;}
+ m.onBeforeCompile=shader=>{shader.uniforms.uExplorer=playerUniform;shader.uniforms.uPlaza=plazaUniform;shader.vertexShader='varying vec3 vDungeonWorld;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvDungeonWorld = (modelMatrix * vec4(transformed,1.0)).xyz;');shader.fragmentShader='uniform float uPlaza;\nuniform vec3 uExplorer;\nvarying vec3 vDungeonWorld;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>','float lanternDistance=length(vDungeonWorld.xz-uExplorer.xz); float lanternFade=1.0-smoothstep(0.8,4.15,lanternDistance); outgoingLight *= mix(0.035 + 0.965 * lanternFade,1.0,uPlaza);\n#include <opaque_fragment>');};
+ m.customProgramCacheKey=()=> 'dungeon-soft-light-v2';materialCache.set(key,m);return m;}
  const palette={skin:mat('#efbc8e'),hair:mat('#483344'),shirt:mat('#46877e'),hat:mat('#9c683e'),brim:mat('#b47e4c'),band:mat('#573d34'),gold:mat('#edbc61'),cape:mat('#8057ae'),capeDark:mat('#603f88'),pants:mat('#766958'),boots:mat('#513d35'),eyes:mat('#252938'),white:mat('#fff3d6'),bag:mat('#987450'),belt:mat('#504234')};
  const roundCache=new Map();
  function box(parent,w,h,d,x,y,z,material){
@@ -65,8 +65,8 @@ window.createDungeonView = function(host) {
   else if(i===1){ctx.beginPath();ctx.arc(125,80,48,0,Math.PI*2);ctx.fill();ctx.fillStyle='#163d65';ctx.beginPath();ctx.arc(147,63,44,0,Math.PI*2);ctx.fill();}
   else{ctx.font='bold 65px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,128,82);}
   const map=new T.CanvasTexture(c);map.colorSpace=T.SRGBColorSpace;return new T.SpriteMaterial({map,transparent:true,depthWrite:false});});
- let level=null,tiles=[],items=[],ghostModels=[],drips=[],waterRipples=[];const dungeon=new T.Group();scene.add(dungeon);
- function load(next){level=next;dungeon.clear();tiles=[];items=[];ghostModels=[];drips=[];waterRipples=[];const random=C.rng(level.seed^0x71e8);
+ let level=null,tiles=[],items=[],ghostModels=[],drips=[],waterRipples=[],torches=[];const dungeon=new T.Group();scene.add(dungeon);
+ function load(next){level=next;plazaUniform.value=level.plaza?1:0;host.classList.toggle('plaza',!!level.plaza);scene.background.set(level.plaza?'#23333b':'#050910');torches=[];dungeon.clear();tiles=[];items=[];ghostModels=[];drips=[];waterRipples=[];const random=C.rng(level.seed^0x71e8);
   for(let y=0;y<level.size;y++)for(let x=0;x<level.size;x++){
    const type=level.grid[y][x],g=new T.Group();g.position.set(x+.5,0,y+.5);dungeon.add(g);
    const stone=wallMat[(x*3+y)%3];
@@ -84,6 +84,7 @@ window.createDungeonView = function(host) {
    else{const slab=box(g,.99,.13,.99,0,-.08,0,floorMat[(x+y)%3]);slab.rotation.y=((x*7+y*11)%4)*Math.PI/2;if(type===4){box(g,.34,.9,1,-.33,.4,0,stone);box(g,.34,.9,1,.33,.4,0,stone);}}
    tiles.push({g,x,y,type});
   }
+  if(level.plaza){for(const [x,z] of [[2.25,3.3],[8.75,3.3],[2.25,7.5],[8.75,7.5]]){const torch=new T.Group();torch.position.set(x,0,z);dungeon.add(torch);box(torch,.19,.16,.19,0,.08,0,mat('#5b554a'));cylinder(torch,.055,.07,1.25,0,.7,0,mat('#705035'));cylinder(torch,.15,.085,.18,0,1.32,0,mat('#453d35'));const flame=oval(torch,.25,.43,.25,0,1.58,0,mat('#ffb94b',{emissive:'#ff862c',emissiveIntensity:1.5}));oval(torch,.12,.29,.12,0,1.54,.04,mat('#ffe7a2',{emissive:'#ffd27d',emissiveIntensity:1.8}));const light=new T.PointLight('#ffc775',4,6,2);light.position.set(0,1.8,0);torch.add(light);torches.push({flame,light,phase:x+z});}}
   level.doors.forEach((d,i)=>{const g=new T.Group();g.position.set(d.x+.5,0,d.y+.5);dungeon.add(g);const kind=d.entry?2:i,trim=mat(['#eac46c','#73bdf3','#8ccbb0'][kind]);box(g,.12,1.15,.16,-.37,.575,0,trim);box(g,.12,1.15,.16,.37,.575,0,trim);box(g,.86,.14,.2,0,1.17,0,trim);box(g,.62,1,.08,0,.55,0,mat(['#826026','#285e9d','#3d7668'][kind]));oval(g,.09,.09,.08,.21,.5,.07,trim);const sign=new T.Sprite(doorSigns[kind]);sign.position.set(0,1.47,0);sign.scale.set(.85,.53,1);g.add(sign);items.push({g,x:d.x,y:d.y});});
   level.notes.forEach(n=>{const g=new T.Group();g.position.set(n.x+.5,0,n.y+.5);dungeon.add(g);box(g,.08,.36,.08,0,.18,0,mat('#917451'));box(g,.38,.32,.07,0,.47,0,mat('#e4cc97'));for(let i=0;i<3;i++)box(g,.25,.02,.015,0,.54-i*.06,.045,mat('#86714e'));items.push({g,x:n.x,y:n.y});});
   level.foods.forEach(f=>{const g=new T.Group();g.position.set(f.x+.5,.08,f.y+.5);dungeon.add(g);cylinder(g,.2,.2,.08,0,.08,0,mat('#dca159'));cylinder(g,.21,.21,.065,0,.15,0,mat('#62402c'));box(g,.39,.03,.39,0,.19,0,mat('#edc658'));cylinder(g,.23,.23,.04,0,.23,0,mat('#74a957'));oval(g,.46,.2,.46,0,.31,0,mat('#efb965'));items.push({g,x:f.x,y:f.y,food:f});});
@@ -105,11 +106,13 @@ window.createDungeonView = function(host) {
   for(const {ring,phase} of waterRipples){const t=(time*.6+phase)%1;ring.scale.setScalar(.5+t*2.7);ring.visible=t<.9;}
   for(const item of items)item.g.visible=visible(item.x,item.y)&&(!item.food||!item.food.eaten);
   for(const {g,ghost} of ghostModels){const [x,y]=C.ghostPosition(ghost,time);g.position.set(x,Math.sin(time*3)*.045,y);g.rotation.y=C.ghostHeading(ghost,time);g.visible=ghost.alive&&visible(Math.floor(x),Math.floor(y));}
+  for(const t of torches){const flicker=Math.sin(time*4+t.phase)*.035;t.flame.scale.y=.215+flicker*.25;t.light.intensity=4+flicker*3;}
   renderer.render(scene,camera);
   // Screen-space circular vignette, anchored to a stable height, not the walking bob.
   const point=new T.Vector3(player.x,.85,player.y).project(camera);host.style.setProperty('--light-x',((point.x+1)*50)+'%');host.style.setProperty('--light-y',((1-point.y)*50)+'%');
  }
  function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h);const aspect=w/h,vertical=Math.max(5.25,4.58/aspect);camera.left=-vertical*aspect/2;camera.right=vertical*aspect/2;camera.top=vertical/2;camera.bottom=-vertical/2;camera.updateProjectionMatrix();}
  new ResizeObserver(resize).observe(host);resize();
- return {load,render,camera,renderer,hero,scene};
+ function setBrightness(percent){renderer.toneMappingExposure=1.05*percent/100;}
+ return {load,render,setBrightness,camera,renderer,hero,scene};
 };
