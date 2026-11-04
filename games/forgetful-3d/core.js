@@ -72,7 +72,13 @@
       if(route.length<2){const p=neighbors(grid,start.x,start.y).find(([a,b])=>grid[b][a]===0);if(p)route.push(p);}
       ghosts.push({route,phase:random(),alive:true});
     }
-    return {seed,floor,size,grid,doors,notes,foods,decor,ghosts,required};
+    // Start with one clearly marked trap, then introduce more on deeper floors.
+    const traps=[];
+    for(let i=0;i<Math.min(3,1+Math.floor((floor-1)/10));i++){
+      const pos=take(8,max);
+      traps.push({...pos,offset:random()*4,lastHit:-1});
+    }
+    return {seed,floor,size,grid,doors,notes,foods,decor,ghosts,required,traps};
   }
   function canEnter(tile,inventory){return tile===0||Object.entries(barriers).some(([id,n])=>n===tile&&inventory.includes(id));}
   function makePlaza(){const size=11,grid=Array.from({length:size},(_,y)=>Array.from({length:size},(_,x)=>x<2||x>8||y<1||y>9?1:0));
@@ -98,6 +104,7 @@
   }
   function ghostPosition(ghost,time){const route=ghost.route;if(route.length===1)return route[0].map(v=>v+.5);const length=route.length-1,p=(time*.85+ghost.phase*length)%(length*2),d=p>length?length*2-p:p,index=Math.min(length-1,Math.floor(d)),fraction=d-index;return [route[index][0]+.5+(route[index+1][0]-route[index][0])*fraction,route[index][1]+.5+(route[index+1][1]-route[index][1])*fraction];}
   function ghostHeading(ghost,time){const a=ghostPosition(ghost,time),b=ghostPosition(ghost,time+.001);return Math.atan2(b[0]-a[0],b[1]-a[1]);}
-  root.ForgetfulCore={skills,names,barriers,rng,derive,makeFloor,makePlaza,canEnter,clue,visible,ghostPosition,ghostHeading,distances};
+  function trapPhase(trap,time){const t=time+trap.offset,phase=t%4;return {cycle:Math.floor(t/4),warning:phase>=2&&phase<3.2,active:phase>=3.2};}
+  root.ForgetfulCore={trapPhase,skills,names,barriers,rng,derive,makeFloor,makePlaza,canEnter,clue,visible,ghostPosition,ghostHeading,distances};
   if(typeof module!=='undefined')module.exports=root.ForgetfulCore;
 })(typeof window!=='undefined'?window:globalThis);
