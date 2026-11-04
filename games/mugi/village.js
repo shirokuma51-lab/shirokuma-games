@@ -29,8 +29,8 @@ function book(){
   for(const p of stops.filter(p=>p.icon)){g.fillStyle='#324d43';g.fillText(p.icon,X(p.x),Y(p.z))}
   g.fillStyle='#c14e35';g.beginPath();g.arc(X(wx()),Y(wz()),7,0,7);g.fill();g.strokeStyle='white';g.lineWidth=2;g.stroke()
 }
-const T=THREE, cv=$('world');let renderer;
-try{renderer=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6))}catch{panel('3D画面を開始できません','WebGL 2 に対応したブラウザで、ハードウェアアクセラレーションを有効にして開いてください。',[],false)}
+const T=THREE; let cv=$('world');let renderer;
+try{renderer=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6))}catch{renderer=null}
 const world=new T.Scene(),cam=new T.OrthographicCamera(-8,8,8,-8,.1,140);
 world.background=new T.Color(0xc2ded9);world.fog=new T.FogExp2(0xc2ded9,.012);
 const sky=new T.HemisphereLight(0xfff4dc,0x9fa482,1.95),sun=new T.DirectionalLight(0xffe3a9,2.1);
@@ -96,7 +96,7 @@ function updateObjects(){
  for(let [b,m] of insects)if(!s.bugs.includes(b)){world.remove(m);insects.delete(b)}
  for(let b of s.bugs){let m=insects.get(b);if(!m){m=new T.Group();world.add(m);insects.set(b,m);part(m,ball,b.big?0x945939:0x4b6d3a,0,0,0,.23,.13,.38);for(let side of [-1,1])part(m,ball,0xabbe70,side*.15,.08,0,.13,.055,.28);m.scale.setScalar(b.big?1.75:1)}m.position.set(plots[b.place][0]+b.x,.62+.17*Math.sin(tick*9+b.x),plots[b.place][1]+b.z)}
 }
-function render(){
+function render3D(){
  let w=cv.clientWidth,h=cv.clientHeight,r=w/h;let span=Math.max(6.1/r,7.4);
  if(cv.width!==Math.floor(w*renderer.getPixelRatio())||cv.height!==Math.floor(h*renderer.getPixelRatio()))renderer.setSize(w,h,false);
  cam.left=-span*r;cam.right=span*r;cam.top=span;cam.bottom=-span;cam.updateProjectionMatrix();
@@ -105,4 +105,6 @@ function render(){
  sun.intensity=s.time>=1080?.65:2.1;sky.intensity=s.time>=1080?1.15:1.95;updatePlants();updateObjects();renderer.render(world,cam);
  let p=nearest();$('interact').hidden=!p;if(p)$('interact').textContent=p.title+'　(E)'
 }
+
+
 
