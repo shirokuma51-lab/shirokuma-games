@@ -69,7 +69,28 @@
     for(const food of level.foods)if(!food.eaten&&state.hearts<3&&Math.hypot(player.x-food.x-.5,player.y-food.y-.5)<.5){food.eaten=true;state.hearts++;beep(880,.16);toast('おやつは別腹。ハートが1つ回復！');hud();}
     for(const ghost of level.ghosts)if(ghost.alive){const [gx,gy]=C.ghostPosition(ghost,time);if(Math.hypot(gx-player.x,gy-player.y)<.55){ghost.alive=false;if(state.skills.includes('counter')&&!state.counterUsed){state.counterUsed=true;toast('カウンター！ お化けは定時で帰りました。');beep(740,.2);}else{state.hearts--;damageFeedback();toast('つかまった！ お化けは満足して帰りました。');beep(120,.25,'triangle');}hud();if(state.hearts===0){finish('お化けとの交流が、少し多すぎました。');return;}}}
     const target=nearThings()[0];$('inspect').textContent=!target?'調べる':target.type==='note'?'メモを読む':target.entry?'入口の扉を調べる':(target.index===0?'★ 星':'☾ 月')+'の扉を調べる';
-    const senses=[];for(const [id,list,label] of [['exit',level.doors,'出口'],['nose',level.foods.filter(f=>!f.eaten),'食べ物']])if(state.skills.includes(id)){const target=[...list].sort((a,b)=>Math.hypot(a.x+.5-player.x,a.y+.5-player.y)-Math.hypot(b.x+.5-player.x,b.y+.5-player.y))[0];if(target){const angle=Math.atan2(target.y+.5-player.y,target.x+.5-player.x),arrows=['→','↘','↓','↙','←','↖','↑','↗'];senses.push(`${label} ${arrows[(Math.round(angle/(Math.PI/4))+8)%8]}`);}else senses.push(`${label}：なし`);}if(state.skills.includes('counter'))senses.push(`カウンター ${state.counterUsed?'使用済み':'あと1回'}`);$('senses').textContent=level.plaza?'入口 ↑ ／ 近くのメモで操作を確認':senses.join('　／　');
+    updateGuides();
+  }
+  function updateGuides(){
+    const stage=$('stage'), width=stage.clientWidth,height=stage.clientHeight;
+    const top=stage.querySelector('.hud').offsetHeight+40, bottom=height-38;
+    const cx=width/2,cy=Math.max(top+1,Math.min(bottom-1,height/2));
+    const placed=[];
+    function guide(id,enabled,list,label){
+      const el=$('guide-'+id);
+      const distance=o=>Math.hypot(o.x+.5-player.x,o.y+.5-player.y);
+      const target=enabled&&list.reduce((best,o)=>!best||distance(o)<distance(best)?o:best,null);
+      el.hidden=!target||distance(target)<.2;if(el.hidden)return;
+      const dx=target.x+.5-player.x,dy=(target.y+.5-player.y)*(-view.camera.matrixWorld.elements[6]);
+      const k=Math.min((cx-36)/(Math.abs(dx)||1e-9),(dy<0?cy-top:bottom-cy)/(Math.abs(dy)||1e-9));
+      let x=cx+dx*k,y=cy+dy*k;
+      if(placed.some(p=>Math.hypot(x-p.x,y-p.y)<62)){if(Math.abs(x-cx)>cx-42)y+=y<cy?54:-54;else x+=x<cx?60:-60;}
+      x=Math.max(36,Math.min(width-36,x));y=Math.max(top,Math.min(bottom,y));placed.push({x,y});
+      el.style.left=x+'px';el.style.top=y+'px';el.firstElementChild.style.transform='rotate('+Math.atan2(dy,dx)+'rad)';el.lastElementChild.textContent=label;
+    }
+    guide('door',level.plaza||state.skills.includes('exit'),level.doors,level.plaza?'入口':'出口');
+    guide('food',state.skills.includes('nose'),level.foods.filter(f=>!f.eaten),'おやつ');
+    $('senses').textContent=state.skills.includes('counter')?'カウンター '+(state.counterUsed?'使用済み':'あと1回'):state.skills.includes('nose')&&level.foods.every(f=>f.eaten)?'おやつは食べました':'';
   }
   function draw(){if(level&&player)view.render(player,time,moving,heading,state?.skills||[]);}
   function frame(now){const elapsed=Math.max(0,(now-last)/1000),dt=Math.min(.04,elapsed);last=now;if(state&&!dialog.open&&!document.hidden&&!ended){if(!level.plaza){remaining=Math.max(0,remaining-elapsed);clockHud();if(!remaining){finish('時間切れ！ 地上へ戻ろう。');draw();requestAnimationFrame(frame);return;}}update(dt);if(prefs.bgm&&time-lastBeat>.48){const notes=[196,0,294,0,330,294,0,247,220,0,294,0,392,330,294,0];const n=notes[melody++%notes.length];if(n)beep(n,.32,'sine',.015,'music');lastBeat=time;}}draw();if(now>toastUntil)$('toast').classList.remove('show');requestAnimationFrame(frame);}
