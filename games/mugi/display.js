@@ -8,7 +8,7 @@ function oval(x,y,rx,ry,c,rot=0){g.fillStyle=c;g.beginPath();g.ellipse(x,y,Math.
 function line(x,y,u,v,c,w){g.strokeStyle=c;g.lineWidth=w;g.lineCap='round';g.beginPath();g.moveTo(x,y);g.lineTo(u,v);g.stroke()}
 function cube(x,z,w,d,h,cols){let a=x-w/2,b=x+w/2,f=z+d/2,r=z-d/2;face([[a,h,r],[b,h,r],[b,h,f],[a,h,f]],cols[0]);face([[a,0,f],[b,0,f],[b,h,f],[a,h,f]],cols[1]);face([[a,0,r],[a,0,f],[a,h,f],[a,h,r]],cols[2])}
 function stamp(name,x,z,w,h){const img=artImages[name];if(!img.naturalWidth)return false;const [a,b]=pt(x,0,z);g.drawImage(img,a-w*k/2,b-h*k,w*k,h*k);return true}
-function house(x,z){if(stamp('house',x,z+1.35,4.9,4.6))return;cube(x,z,2.9,2,2,['#f7dfa6','#f4dba2','#bfaa79']);for(let side of [-1,1])face([[x+side*1.75,1.85,z-1.25],[x,3.15,z-1.25],[x,3.15,z+1.25],[x+side*1.75,1.85,z+1.25]],side<0?'#975544':'#bb6e50');face([[x-1.45,1.85,z+1],[x,3.05,z+1],[x+1.45,1.85,z+1]],'#eed49a');cube(x+.5,z+1.02,.65,.1,1.3,['#89704d','#775641','#67513d']);}
+function house(x,z,art='house',height=4.6){if(stamp(art,x,z+1.35,4.9,height))return;cube(x,z,2.9,2,2,['#f7dfa6','#f4dba2','#bfaa79']);for(let side of [-1,1])face([[x+side*1.75,1.85,z-1.25],[x,3.15,z-1.25],[x,3.15,z+1.25],[x+side*1.75,1.85,z+1.25]],side<0?'#975544':'#bb6e50');face([[x-1.45,1.85,z+1],[x,3.05,z+1],[x+1.45,1.85,z+1]],'#eed49a');cube(x+.5,z+1.02,.65,.1,1.3,['#89704d','#775641','#67513d']);}
 function tree(x,z,i){let [a,b]=pt(x,0,z);oval(a,b,k*.75,k*.2,'#87975f');line(a,b,a,b-k*1.5,'#856d4d',k*.18);for(let j=0;j<4;j++)oval(a+Math.cos(j*2)*k*.39,b-k*(1.55+j*.14),k*.62,k*.75,['#6f955e','#90aa67','#abc47a','#8ca96a'][j])}
 function plant(c){let days=Math.min(5,s.day-c.day),h=.37+days*.16;if(stamp(days===5?"wheat":"sprout",c.x,c.z,h*1.12,h))return;let [x,y]=pt(c.x,0,c.z),age=s.day-c.day,mature=age>=5;for(let j=-1;j<=1;j++){let u=x+j*k*.18,v=y+Math.abs(j)*k*.06,h=k*(mature?.78:.2+Math.max(0,age)*.09),sw=Math.sin(tick*1.7+c.z+j)*k*.035;line(u,v,u+sw,v-h,mature?'#997735':'#638247',k*.04);for(let q=0;q<4;q++)oval(u+sw+(q%2?1:-1)*k*.05,v-h+q*k*.077,k*.054,k*.12,mature?(q%2?'#eab851':'#f9d777'):'#8da75b',q%2?.55:-.55)}}
 
@@ -36,7 +36,7 @@ return function draw(){
  const crops=s.fields[i]||[];for(const row of new Set(crops.map(c=>c.x)))ground(x+row-.6,z-3.1,1.2,6.3,'#a8815d');
  for(const c of crops)if(c.day)objects.push([z+c.z,()=>plant({...c,x:x+c.x,z:z+c.z})])
  }
- for(const tree of forest)objects.push([tree.z,()=>stamp(tree.art,tree.x,tree.z,tree.width,tree.height)]);for(const b of blocks)objects.push([b.z+1,()=>house(b.x,b.z)]);
+ for(const tree of forest)objects.push([tree.z,()=>stamp(tree.art,tree.x,tree.z,tree.width,tree.height)]);for(const b of blocks)objects.push([b.z+1,()=>house(b.x,b.z,b.art,b.height)]);
  for(const e of s.structures){let [x,z]=plots[e.place];objects.push([z+e.z,()=>cube(x+e.x,z+e.z,e.n==='塀'?1.6:.7,.4,e.n==='塀'?.7:1.7,['#d7b477','#b78d5d','#9a7453'])])}
  for(const b of s.bugs){let [x,z]=plots[b.place];objects.push([z+b.z,()=>{let [u,v]=pt(x+b.x,.6+.15*Math.sin(tick*8),z+b.z);oval(u,v,k*(b.big?.34:.22),k*.12,'#476b3e') }])}
  objects.push([3.6,()=>stamp("crate",3,3.6,1.5,1.4)||cube(3,3.6,1.2,.85,.98,['#dbb67c','#ad8256','#896548'])]);

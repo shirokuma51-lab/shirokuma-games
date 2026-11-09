@@ -1,11 +1,11 @@
 'use strict';
 const artImages={},artMaps={},orchard=[[-6,1],[-8,-4],[5,-5],[17,-6],[-11,-17],[1,-21],[19,3],[-21,-8]];
-const artNames=['house','front','back','tree','meadow','sprout','wheat','crate','flowers','hana','gen','pine','birch','oak','maple'];
+const artNames=['house','front','back','tree','meadow','sprout','wheat','crate','flowers','hana','gen','oak','hana-house','gen-house','shop','guesthouse'];
 for(let row=0;row<3;row++)for(let frame=0;frame<8;frame++)artNames.push('stride-'+row+'-'+frame);
 for(const name of artNames){
   const img=new Image();artImages[name]=img;
   const map=new THREE.Texture(img);map.colorSpace=THREE.SRGBColorSpace;
-  img.onload=()=>{map.needsUpdate=true};const source='art/'+name+(name==='meadow'?'.jpg':'.png');img.src=source.startsWith('data:')?source:source+'?v=7';artMaps[name]=map;
+  img.onload=()=>{map.needsUpdate=true;if(artMaps[name+"-left"])artMaps[name+"-left"].needsUpdate=true};const source='art/'+name+(name==='meadow'?'.jpg':'.png');img.src=source.startsWith('data:')?source:source+'?v=8';artMaps[name]=map;
 }
 function illustration(name,w,h,x,y,z,parent){
   const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:artMaps[name],alphaTest:.12}));
@@ -37,15 +37,31 @@ function heroPose(){
   return {name:'stride-'+row+'-'+frame,flip:horizontal&&Math.sin(s.dir)<0};
 }
 
-const forest=[];
-const treeTypes=['pine','birch','oak','maple'];
-// Loose clusters at the edge of the village leave paths and fields open.
-for(let i=0;i<38;i++){
- const north=i<22;
- const x=north?-25+i*2.5+Math.sin(i*4.3)*.9:(i%2?-26:26)+Math.sin(i)*1.5;
- const z=north?-26-Math.sin(i*1.7)*2.5:-21+(i-22)*2.1;
- const height=3.4+(Math.sin(i*2.3)+1)*.8;
- forest.push({x,z,art:treeTypes[i%4],height,width:height*(i%4===1?.75:.95)});
-}
-orchard.forEach(([x,z],i)=>forest.push({x,z,art:treeTypes[i%4],height:3.4+(i%3)*.25,width:3.15}));
 
+const forest=[];
+// Two overlapping layers of the same broadleaf species form an impassable woodland.
+for(let layer=0;layer<2;layer++){
+ for(let i=0;i<=24;i++){
+   const x=-25.5+i*2.13+Math.sin(i*3.1)*.25;
+   for(const z of [-24.5-layer*2.15,11.6+layer*2.15]){
+     const height=4.5+.35*Math.sin(i*2.1+layer);
+     forest.push({x:x+layer*.9,z,art:'oak',height,width:height*1.08});
+   }
+ }
+ for(let i=0;i<16;i++){
+   const z=-23+i*2.23+Math.sin(i*2.7)*.3;
+   for(const x of [-25.3-layer*2.1,25.3+layer*2.1]){
+     const height=4.5+.3*Math.cos(i+layer);
+     forest.push({x,z:z+layer*.8,art:'oak',height,width:height*1.08});
+   }
+ }
+}
+orchard.forEach(([x,z])=>forest.push({x,z,art:'tree',height:3.45,width:3.4}));
+for(let frame=0;frame<8;frame++){
+ const name='stride-2-'+frame;
+ const mirrored=artMaps[name].clone();
+ mirrored.repeat.x=-1;
+ mirrored.offset.x=1;
+ mirrored.needsUpdate=true;
+ artMaps[name+'-left']=mirrored;
+}
