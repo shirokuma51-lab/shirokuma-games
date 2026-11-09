@@ -3,3 +3,8 @@ function frame(now){let dt=last?Math.min(.12,(now-last)/1000):0;last=now;if(!doc
 start();requestAnimationFrame(frame);
 
 
+
+for(const button of document.querySelectorAll("[data-move]")){
+ button.addEventListener("pointerdown",e=>{if(dlg.open)return;e.preventDefault();keys[button.dataset.move]=true;button.setPointerCapture(e.pointerId)});
+ for(const type of ["pointerup","pointercancel","lostpointercapture"])button.addEventListener(type,()=>{keys[button.dataset.move]=false});
+}
