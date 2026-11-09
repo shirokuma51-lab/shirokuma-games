@@ -3,14 +3,46 @@
 const plots=[[0,0],[11,0],[11,-15],[-16,-15],[-3,-15]];
 const wx=()=>plots[s.scene][0]+s.x, wz=()=>plots[s.scene][1]+s.z;
 const blocks=[], stops=[];
+
+function setPosition(x,z){
+  let best=0;
+  plots.forEach(([a,b],i)=>{
+    if(Math.hypot(a-x,b-z)<Math.hypot(plots[best][0]-x,plots[best][1]-z))best=i;
+  });
+  s.scene=best;
+  s.x=x-plots[best][0];
+  s.z=z-plots[best][1];
+}
+function blockedAt(x,z){
+  return blocks.some(o=>Math.abs(x-o.x)<o.w/2+.25&&Math.abs(z-o.z)<o.d/2+.25);
+}
+function restoreWalkablePosition(){
+  if(!plots[s.scene]||!Number.isFinite(s.x)||!Number.isFinite(s.z)){
+    setPosition(-4,1.5);
+    return;
+  }
+  let x=Math.max(-23.7,Math.min(23.7,wx()));
+  let z=Math.max(-22.7,Math.min(9.7,wz()));
+  for(const building of blocks){
+    if(Math.abs(x-building.x)<building.w/2+.25&&Math.abs(z-building.z)<building.d/2+.25){
+      x=building.x;
+      z=building.z+building.d/2+.65;
+    }
+  }
+  setPosition(x,z);
+}
 function walk(dx,dz){
-  let x=wx(),z=wz();
-  const clear=(a,b)=>Math.abs(a)<24&&b>-23&&b<10&&!blocks.some(o=>Math.abs(a-o.x)<o.w/2+.22&&Math.abs(b-o.z)<o.d/2+.22);
+  restoreWalkablePosition();
+  const startX=wx(),startZ=wz();
+  let x=startX,z=startZ;
+  const clear=(a,b)=>Math.abs(a)<24&&b>-23&&b<10&&!blockedAt(a,b);
   if(clear(x+dx,z))x+=dx;
   if(clear(x,z+dz))z+=dz;
-  let best=0;
-  plots.forEach(([a,b],i)=>{if(Math.hypot(a-x,b-z)<Math.hypot(plots[best][0]-x,plots[best][1]-z))best=i});
-  s.scene=best;s.x=x-plots[best][0];s.z=z-plots[best][1];
+  setPosition(x,z);
+  const distance=Math.hypot(x-startX,z-startZ);
+  isWalking=distance>.0001;
+  walkDistance+=distance;
+  return distance;
 }
 function areaName(){return Math.abs(s.x)<5&&Math.abs(s.z)<4.5?sites[s.scene]:'村の農道'}
 function nearest(){return stops.filter(p=>!p.active||p.active()).map(p=>[p,Math.hypot(p.x-wx(),p.z-wz())]).filter(a=>a[1]<2.5).sort((a,b)=>a[1]-b[1])[0]?.[0]}
@@ -19,7 +51,7 @@ $('interact').onclick=interact;
 function book(){
   if(s.job)return job();
   panel('丘の地図と手帳','● 現在地　'+areaName()+'　／　麦束 '+s.bales+'　種 '+s.seeds+'粒\n地図の上が北。農道を歩き、看板に近づいて「調べる」を押そう。',[
-    ['倉庫・設備設置・配達',inventory],['ひと休み（1時間）',()=>{advance(60);s.tired=Math.max(0,s.tired-5);dlg.close()}],...s.cards.slice(-3).map(c=>[c.year+'年目の絵葉書',()=>card(c)])]);
+    ['倉庫・設備設置・配達',inventory],['家の前の道へ戻る',()=>{setPosition(-4,1.5);dlg.close();save()}],['ひと休み（1時間）',()=>{advance(60);s.tired=Math.max(0,s.tired-5);dlg.close()}],...s.cards.slice(-3).map(c=>[c.year+'年目の絵葉書',()=>card(c)])]);
   let m=document.createElement('canvas');m.width=660;m.height=390;m.style='width:100%;height:auto;border-radius:10px';$('extra').append(m);
   let g=m.getContext('2d'),X=x=>330+x*13,Y=z=>276+z*11;
   g.fillStyle='#b5c894';g.fillRect(0,0,660,390);g.strokeStyle='#edcf9d';g.lineWidth=16;
@@ -69,11 +101,14 @@ hero.userData.portrait.material.depthWrite=false;
 hero.userData.portrait.renderOrder=20;
 for(const v of villagers){
  const person=farmer(v.x,v.z,0x997caa);
+ person.userData.portrait.material.map=artMaps[v.art];
+ person.userData.portrait.scale.set(v.width,v.height,1);
  person.userData.portrait.material.depthTest=false;
  person.userData.portrait.renderOrder=15;
  const tag=label(v.name,v.x,3.2,v.z);tag.material.depthTest=false;tag.renderOrder=25;tag.scale.set(1.2,.4,1);
 }
 
+restoreWalkablePosition();
 const hand=new T.Group();hero.add(hand);hand.position.set(.27,.85,.1);
 part(hand,tube,0x976a3e,0,0,.29,.045,.70,.045).rotation.x=Math.PI/2;
 const hoop=part(hand,new T.TorusGeometry(.26,.027,6,18),0xf7e3b5,0,.10,.74,1,1,1);
@@ -125,7 +160,11 @@ function render3D(){
  let w=cv.clientWidth,h=cv.clientHeight,r=w/h;let span=Math.max(6.1/r,7.4);
  if(cv.width!==Math.floor(w*renderer.getPixelRatio())||cv.height!==Math.floor(h*renderer.getPixelRatio()))renderer.setSize(w,h,false);
  cam.left=-span*r;cam.right=span*r;cam.top=span;cam.bottom=-span;cam.updateProjectionMatrix();
- let x=wx(),z=wz();cam.position.set(x,18,z+13);cam.lookAt(x,0,z-1.1);hero.position.set(x,0,z);hero.rotation.y=s.dir;const portrait=hero.userData.portrait;portrait.material.map=artMaps[Math.cos(s.dir)<-.25?'back':'front'];portrait.position.y=(stick||Object.values(keys).some(Boolean))?Math.abs(Math.sin(tick*9))*.06:0;
+ let x=wx(),z=wz();cam.position.set(x,18,z+13);cam.lookAt(x,0,z-1.1);hero.position.set(x,0,z);hero.rotation.y=s.dir;const portrait=hero.userData.portrait;
+ const pose=heroPose();
+ portrait.material.map=artMaps[pose.name];
+ portrait.scale.set(pose.flip?-1.5:1.5,2,1);
+ portrait.position.y=0;
  hoop.visible=s.tool==='網';blade.visible=!hoop.visible;hand.rotation.y=slash>0?Math.sin(slash/.28*Math.PI)*1.7:0;
  sun.intensity=s.time>=1080?.65:2.1;sky.intensity=s.time>=1080?1.15:1.95;updatePlants();updateObjects();renderer.render(world,cam);
  let p=nearest();$('interact').hidden=!p;if(p)$('interact').textContent=p.title+'　(E)'

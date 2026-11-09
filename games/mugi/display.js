@@ -11,7 +11,19 @@ function stamp(name,x,z,w,h){const img=artImages[name];if(!img.naturalWidth)retu
 function house(x,z){if(stamp('house',x,z+1.35,4.9,4.6))return;cube(x,z,2.9,2,2,['#f7dfa6','#f4dba2','#bfaa79']);for(let side of [-1,1])face([[x+side*1.75,1.85,z-1.25],[x,3.15,z-1.25],[x,3.15,z+1.25],[x+side*1.75,1.85,z+1.25]],side<0?'#975544':'#bb6e50');face([[x-1.45,1.85,z+1],[x,3.05,z+1],[x+1.45,1.85,z+1]],'#eed49a');cube(x+.5,z+1.02,.65,.1,1.3,['#89704d','#775641','#67513d']);}
 function tree(x,z,i){let [a,b]=pt(x,0,z);oval(a,b,k*.75,k*.2,'#87975f');line(a,b,a,b-k*1.5,'#856d4d',k*.18);for(let j=0;j<4;j++)oval(a+Math.cos(j*2)*k*.39,b-k*(1.55+j*.14),k*.62,k*.75,['#6f955e','#90aa67','#abc47a','#8ca96a'][j])}
 function plant(c){let days=Math.min(5,s.day-c.day),h=.37+days*.16;if(stamp(days===5?"wheat":"sprout",c.x,c.z,h*1.12,h))return;let [x,y]=pt(c.x,0,c.z),age=s.day-c.day,mature=age>=5;for(let j=-1;j<=1;j++){let u=x+j*k*.18,v=y+Math.abs(j)*k*.06,h=k*(mature?.78:.2+Math.max(0,age)*.09),sw=Math.sin(tick*1.7+c.z+j)*k*.035;line(u,v,u+sw,v-h,mature?'#997735':'#638247',k*.04);for(let q=0;q<4;q++)oval(u+sw+(q%2?1:-1)*k*.05,v-h+q*k*.077,k*.054,k*.12,mature?(q%2?'#eab851':'#f9d777'):'#8da75b',q%2?.55:-.55)}}
-function person(){if(stamp(Math.cos(s.dir)<-.25?"back":"front",wx(),wz(),.95,2)){if(slash>0){let [u,v]=pt(wx(),1,wz());line(u,v,u+k*.65,v-k*.33,"#fff4c3",3)}return}let [x,y]=pt(wx(),0,wz()),b=Math.sin(tick*12)*(stick||Object.values(keys).some(Boolean)?k*.035:0);oval(x,y,k*.35,k*.13,'#8a875d');line(x-k*.13,y-k*.35,x-k*.13,y,'#594e40',k*.15);line(x+k*.13,y-k*.35,x+k*.13,y,'#594e40',k*.15);oval(x,y-k*.55+b,k*.26,k*.34,'#517c78');oval(x,y-k*.98+b,k*.23,k*.25,'#c78f68');oval(x,y-k*1.16+b,k*.43,k*.10,'#b58b4e');oval(x,y-k*1.25+b,k*.28,k*.19,'#e5bc72');let dx=Math.sin(s.dir),dz=Math.cos(s.dir),a=pt(wx()+dx*.8,.65,wz()+dz*.8);line(x+k*.15,y-k*.62,a[0],a[1],'#977345',k*.055);if(s.tool==='網'){g.strokeStyle='#f7ead2';g.lineWidth=k*.065;g.beginPath();g.ellipse(a[0],a[1]-k*.16,k*.22,k*.28,-.55,0,7);g.stroke()}if(slash>0){g.strokeStyle='#fff1b8';g.lineWidth=4;g.beginPath();g.arc(x,y-k*.4,k*.85,-2.9,-.25);g.stroke()}}
+
+function person(){
+ const pose=heroPose(),img=artImages[pose.name];
+ if(!img?.naturalWidth){stamp('front',wx(),wz(),.95,2);return}
+ const [x,y]=pt(wx(),0,wz());
+ oval(x,y,.24*k,.075*k,'#57744766');
+ g.save();g.translate(x,y);g.scale(pose.flip?-1:1,1);
+ g.drawImage(img,-.75*k,-2*k,1.5*k,2*k);g.restore();
+ if(slash>0){
+   const [u,v]=pt(wx(),1,wz());
+   line(u,v,u+Math.sin(s.dir)*k*.8,v+Math.cos(s.dir)*k*.35,'#fff4c3',3);
+ }
+}
 return function draw(){
  const W=canvas.clientWidth,H=canvas.clientHeight,d=Math.min(devicePixelRatio,1.5);
  if(canvas.width!==Math.round(W*d)||canvas.height!==Math.round(H*d)){canvas.width=Math.round(W*d);canvas.height=Math.round(H*d)}
@@ -27,8 +39,8 @@ return function draw(){
  for(const [x,z] of orchard)objects.push([z,()=>stamp('tree',x,z,3.4,3.45)]);for(const b of blocks)objects.push([b.z+1,()=>house(b.x,b.z)]);
  for(const e of s.structures){let [x,z]=plots[e.place];objects.push([z+e.z,()=>cube(x+e.x,z+e.z,e.n==='塀'?1.6:.7,.4,e.n==='塀'?.7:1.7,['#d7b477','#b78d5d','#9a7453'])])}
  for(const b of s.bugs){let [x,z]=plots[b.place];objects.push([z+b.z,()=>{let [u,v]=pt(x+b.x,.6+.15*Math.sin(tick*8),z+b.z);oval(u,v,k*(b.big?.34:.22),k*.12,'#476b3e') }])}
- objects.push([3.6,()=>stamp("crate",3,3.6,1.5,1.4)||cube(3,3.6,1.2,.85,.98,['#dbb67c','#ad8256','#896548'])],[wz(),person]);
- for(const v of villagers)objects.push([v.z,()=>{stamp('front',v.x,v.z,.95,2);const [u,w]=pt(v.x,2.4,v.z);g.font='bold 14px sans-serif';g.textAlign='center';g.fillStyle='#fff8e5';g.fillRect(u-24,w-16,48,22);g.fillStyle='#334d3d';g.fillText(v.name,u,w)}]);
+ objects.push([3.6,()=>stamp("crate",3,3.6,1.5,1.4)||cube(3,3.6,1.2,.85,.98,['#dbb67c','#ad8256','#896548'])]);
+ for(const v of villagers)objects.push([v.z,()=>{stamp(v.art,v.x,v.z,v.width,v.height);const [u,w]=pt(v.x,2.4,v.z);g.font='bold 14px sans-serif';g.textAlign='center';g.fillStyle='#fff8e5';g.fillRect(u-24,w-16,48,22);g.fillStyle='#334d3d';g.fillText(v.name,u,w)}]);
  objects.sort((a,b)=>a[0]-b[0]).forEach(o=>o[1]());
  person();
 
