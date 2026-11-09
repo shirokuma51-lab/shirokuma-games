@@ -1,11 +1,11 @@
 'use strict';
 const artImages={},artMaps={},orchard=[[-6,1],[-8,-4],[5,-5],[17,-6],[-11,-17],[1,-21],[19,3],[-21,-8]];
-const artNames=['house','front','back','tree','meadow','sprout','wheat','crate','flowers','hana','gen'];
-for(let row=0;row<3;row++)for(let frame=0;frame<4;frame++)artNames.push('walk-'+row+'-'+frame);
+const artNames=['house','front','back','tree','meadow','sprout','wheat','crate','flowers','hana','gen','pine','birch','oak','maple'];
+for(let row=0;row<3;row++)for(let frame=0;frame<8;frame++)artNames.push('stride-'+row+'-'+frame);
 for(const name of artNames){
   const img=new Image();artImages[name]=img;
   const map=new THREE.Texture(img);map.colorSpace=THREE.SRGBColorSpace;
-  img.onload=()=>{map.needsUpdate=true};img.src='art/'+name+(name==='meadow'?'.jpg':'.png');artMaps[name]=map;
+  img.onload=()=>{map.needsUpdate=true};const source='art/'+name+(name==='meadow'?'.jpg':'.png');img.src=source.startsWith('data:')?source:source+'?v=7';artMaps[name]=map;
 }
 function illustration(name,w,h,x,y,z,parent){
   const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:artMaps[name],alphaTest:.12}));
@@ -33,6 +33,19 @@ let isWalking=false;
 function heroPose(){
   const horizontal=Math.abs(Math.sin(s.dir))>.65;
   const row=horizontal?2:Math.cos(s.dir)<0?1:0;
-  const frame=isWalking?Math.floor(walkDistance/.22)%4:1;
-  return {name:'walk-'+row+'-'+frame,flip:horizontal&&Math.sin(s.dir)<0};
+  const frame=isWalking?Math.floor(walkDistance/.19)%8:2;
+  return {name:'stride-'+row+'-'+frame,flip:horizontal&&Math.sin(s.dir)<0};
 }
+
+const forest=[];
+const treeTypes=['pine','birch','oak','maple'];
+// Loose clusters at the edge of the village leave paths and fields open.
+for(let i=0;i<38;i++){
+ const north=i<22;
+ const x=north?-25+i*2.5+Math.sin(i*4.3)*.9:(i%2?-26:26)+Math.sin(i)*1.5;
+ const z=north?-26-Math.sin(i*1.7)*2.5:-21+(i-22)*2.1;
+ const height=3.4+(Math.sin(i*2.3)+1)*.8;
+ forest.push({x,z,art:treeTypes[i%4],height,width:height*(i%4===1?.75:.95)});
+}
+orchard.forEach(([x,z],i)=>forest.push({x,z,art:treeTypes[i%4],height:3.4+(i%3)*.25,width:3.15}));
+

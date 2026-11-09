@@ -62,7 +62,7 @@ function book(){
   g.fillStyle='#c14e35';g.beginPath();g.arc(X(wx()),Y(wz()),7,0,7);g.fill();g.strokeStyle='white';g.lineWidth=2;g.stroke()
 }
 const T=THREE; let cv=$('world');let renderer;
-try{renderer=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6))}catch{renderer=null}
+try{renderer=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2))}catch{renderer=null}
 const world=new T.Scene(),cam=new T.OrthographicCamera(-8,8,8,-8,.1,140);
 world.background=new T.Color(0xc2ded9);world.fog=new T.FogExp2(0xc2ded9,.012);
 const sky=new T.HemisphereLight(0xfff4dc,0x9fa482,1.95),sun=new T.DirectionalLight(0xffe3a9,2.1);
@@ -81,7 +81,7 @@ function land(x,z,w,d,c,h=.05){
  m.rotation.x=-Math.PI/2;m.position.set(x,meadow?-.05:ridge?.045:(w>d?.018:.015),z);world.add(m);return m
 }
 land(0,-5,130,100,0x9ab778);land(0,-9,49,2.3,0xd9bd8d);land(0,5,49,2.2,0xd9bd8d);land(-7,-6,2,34,0xd9bd8d);land(6,-6,1.7,26,0xd9bd8d);
-function label(text,x,y,z){let c=document.createElement('canvas');c.width=384;c.height=80;let g=c.getContext('2d');g.fillStyle='#fff3d7';g.fillRect(0,0,384,80);g.strokeStyle='#a48b61';g.lineWidth=7;g.strokeRect(3,3,378,74);g.fillStyle='#395043';g.font='bold 43px serif';g.textAlign='center';g.fillText(text,192,55,362);let tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;let spr=new T.Sprite(new T.SpriteMaterial({map:tex}));spr.position.set(x,y,z);spr.scale.set(3.3,.69,1);world.add(spr);return spr}
+function label(text,x,y,z){let c=document.createElement('canvas');c.width=384;c.height=80;let g=c.getContext('2d');g.fillStyle='#fff3d7';g.fillRect(0,0,384,80);g.strokeStyle='#a48b61';g.lineWidth=7;g.strokeRect(3,3,378,74);g.fillStyle='#395043';g.font='bold 64px serif';g.textAlign='center';g.fillText(text,192,64,362);let tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;let spr=new T.Sprite(new T.SpriteMaterial({map:tex}));spr.position.set(x,y,z);spr.scale.set(3.3,.69,1);world.add(spr);return spr}
 function house(x,z,name,col){blocks.push({x,z,w:3.4,d:2.7});illustration('house',4.9,4.6,x,.04,z+1.35,world);label(name,x,4.65,z)}
 function stop(x,z,title,act,icon,active){stops.push({x,z,title,act,icon,active})}
 house(-4,-3,'わが家',0xb36a53);stop(-4,-1,'家に入る',()=>panel('わが家','明日に備えてゆっくり過ごそう。',[['朝まで眠る',rest],...(s.time>=1080?[['夜の通販',()=>shop(true)]]:[]),...(localDay()===24&&!s.cards.some(c=>c.year===year())?[['収穫祭へ',festival]]:[])]),'家');
@@ -94,18 +94,19 @@ for(const [i,[x,z]] of plots.entries()){
   if(i===1||i===2){label('開拓地',x+3,1.3,z+3);stop(x+3,z+3,'開拓を相談',()=>visit(i),null,()=>!s.fields[i])}
 }
 function farmer(x,z,shirt){const p=new T.Group();world.add(p);p.position.set(x,0,z);p.userData.portrait=illustration('front',.95,2,x*0,0,0,p);return p}
-for(const [x,z] of orchard)illustration('tree',3.4,3.45,x,0,z,world);
+for(const tree of forest)illustration(tree.art,tree.width,tree.height,tree.x,0,tree.z,world);
 const hero=farmer(0,0,0x538982);
 hero.userData.portrait.material.depthTest=false;
 hero.userData.portrait.material.depthWrite=false;
 hero.userData.portrait.renderOrder=20;
+const villagerLabels=[];
 for(const v of villagers){
  const person=farmer(v.x,v.z,0x997caa);
  person.userData.portrait.material.map=artMaps[v.art];
  person.userData.portrait.scale.set(v.width,v.height,1);
  person.userData.portrait.material.depthTest=false;
  person.userData.portrait.renderOrder=15;
- const tag=label(v.name,v.x,3.2,v.z);tag.material.depthTest=false;tag.renderOrder=25;tag.scale.set(1.2,.4,1);
+ const tag=label(v.name,v.x,4,v.z);tag.material.depthTest=false;tag.material.depthWrite=false;tag.renderOrder=25;tag.center.set(.5,0);tag.scale.set(1.3,.48,1);villagerLabels.push({tag,v});
 }
 
 restoreWalkablePosition();
@@ -113,8 +114,6 @@ const hand=new T.Group();hero.add(hand);hand.position.set(.27,.85,.1);
 part(hand,tube,0x976a3e,0,0,.29,.045,.70,.045).rotation.x=Math.PI/2;
 const hoop=part(hand,new T.TorusGeometry(.26,.027,6,18),0xf7e3b5,0,.10,.74,1,1,1);
 const blade=part(hand,ball,0xb9c9bf,0,.07,.71,.08,.06,.27);
-for(let i=0;i<85;i++){let x=Math.sin(i*391.7)*31,z=-6+Math.cos(i*49.7)*23;if(Math.abs(x)<23&&z>-23&&z<9)continue;part(world,tube,0x856c48,x,.8,z,.19,1.6,.2);part(world,ball,i%2?0x81a368:0x6e986d,x,2.1,z,1.1,1.6,1.1)}
-for(let i=0;i<12;i++)part(world,ball,0x9fb99a,-55+i*10,-1,-38-i%3*4,12,5+i%4,8);
 // Static scenery shares geometry and materials, so draw it in batches on phones.
 function batchScenery(){
   const batches=new Map();
@@ -160,15 +159,19 @@ function render3D(){
  let w=cv.clientWidth,h=cv.clientHeight,r=w/h;let span=Math.max(6.1/r,7.4);
  if(cv.width!==Math.floor(w*renderer.getPixelRatio())||cv.height!==Math.floor(h*renderer.getPixelRatio()))renderer.setSize(w,h,false);
  cam.left=-span*r;cam.right=span*r;cam.top=span;cam.bottom=-span;cam.updateProjectionMatrix();
- let x=wx(),z=wz();cam.position.set(x,18,z+13);cam.lookAt(x,0,z-1.1);hero.position.set(x,0,z);hero.rotation.y=s.dir;const portrait=hero.userData.portrait;
+ let x=wx(),z=wz();cam.position.set(x,18,z+13);cam.lookAt(x,0,z-1.1);
+ const screenUp=new T.Vector3(0,1,0).applyQuaternion(cam.quaternion);
+ for(const {tag,v} of villagerLabels)tag.position.set(v.x,0,v.z).addScaledVector(screenUp,v.height+.4);
+hero.position.set(x,0,z);hero.rotation.y=s.dir;const portrait=hero.userData.portrait;
  const pose=heroPose();
  portrait.material.map=artMaps[pose.name];
- portrait.scale.set(pose.flip?-1.5:1.5,2,1);
+ portrait.scale.set(pose.flip?-1.16:1.16,2,1);
  portrait.position.y=0;
  hoop.visible=s.tool==='網';blade.visible=!hoop.visible;hand.rotation.y=slash>0?Math.sin(slash/.28*Math.PI)*1.7:0;
  sun.intensity=s.time>=1080?.65:2.1;sky.intensity=s.time>=1080?1.15:1.95;updatePlants();updateObjects();renderer.render(world,cam);
  let p=nearest();$('interact').hidden=!p;if(p)$('interact').textContent=p.title+'　(E)'
 }
+
 
 
 

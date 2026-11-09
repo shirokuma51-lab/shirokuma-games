@@ -18,14 +18,14 @@ function person(){
  const [x,y]=pt(wx(),0,wz());
  oval(x,y,.24*k,.075*k,'#57744766');
  g.save();g.translate(x,y);g.scale(pose.flip?-1:1,1);
- g.drawImage(img,-.75*k,-2*k,1.5*k,2*k);g.restore();
+ g.drawImage(img,-.58*k,-2*k,1.16*k,2*k);g.restore();
  if(slash>0){
    const [u,v]=pt(wx(),1,wz());
    line(u,v,u+Math.sin(s.dir)*k*.8,v+Math.cos(s.dir)*k*.35,'#fff4c3',3);
  }
 }
 return function draw(){
- const W=canvas.clientWidth,H=canvas.clientHeight,d=Math.min(devicePixelRatio,1.5);
+ const W=canvas.clientWidth,H=canvas.clientHeight,d=Math.min(devicePixelRatio,2);
  if(canvas.width!==Math.round(W*d)||canvas.height!==Math.round(H*d)){canvas.width=Math.round(W*d);canvas.height=Math.round(H*d)}
  g.setTransform(d,0,0,d,0,0);k=Math.min(W/12,H/15);cx=W/2-(wx()+.18*wz())*k;cy=H*.56-.62*wz()*k;
  g.fillStyle=s.time<1080?'#aec78c':'#8caa90';g.fillRect(0,0,W,H);
@@ -36,14 +36,19 @@ return function draw(){
  const crops=s.fields[i]||[];for(const row of new Set(crops.map(c=>c.x)))ground(x+row-.6,z-3.1,1.2,6.3,'#a8815d');
  for(const c of crops)if(c.day)objects.push([z+c.z,()=>plant({...c,x:x+c.x,z:z+c.z})])
  }
- for(const [x,z] of orchard)objects.push([z,()=>stamp('tree',x,z,3.4,3.45)]);for(const b of blocks)objects.push([b.z+1,()=>house(b.x,b.z)]);
+ for(const tree of forest)objects.push([tree.z,()=>stamp(tree.art,tree.x,tree.z,tree.width,tree.height)]);for(const b of blocks)objects.push([b.z+1,()=>house(b.x,b.z)]);
  for(const e of s.structures){let [x,z]=plots[e.place];objects.push([z+e.z,()=>cube(x+e.x,z+e.z,e.n==='塀'?1.6:.7,.4,e.n==='塀'?.7:1.7,['#d7b477','#b78d5d','#9a7453'])])}
  for(const b of s.bugs){let [x,z]=plots[b.place];objects.push([z+b.z,()=>{let [u,v]=pt(x+b.x,.6+.15*Math.sin(tick*8),z+b.z);oval(u,v,k*(b.big?.34:.22),k*.12,'#476b3e') }])}
  objects.push([3.6,()=>stamp("crate",3,3.6,1.5,1.4)||cube(3,3.6,1.2,.85,.98,['#dbb67c','#ad8256','#896548'])]);
- for(const v of villagers)objects.push([v.z,()=>{stamp(v.art,v.x,v.z,v.width,v.height);const [u,w]=pt(v.x,2.4,v.z);g.font='bold 14px sans-serif';g.textAlign='center';g.fillStyle='#fff8e5';g.fillRect(u-24,w-16,48,22);g.fillStyle='#334d3d';g.fillText(v.name,u,w)}]);
+ for(const v of villagers)objects.push([v.z,()=>stamp(v.art,v.x,v.z,v.width,v.height)]);
  objects.sort((a,b)=>a[0]-b[0]).forEach(o=>o[1]());
  person();
-
+ for(const v of villagers){
+   const [x,ground]=pt(v.x,0,v.z),y=ground-v.height*k-15;
+   g.font='bold 14px sans-serif';g.textAlign='center';
+   g.fillStyle='#fff8e5';g.fillRect(x-25,y-22,50,22);
+   g.fillStyle='#334d3d';g.fillText(v.name,x,y-6);
+ }
  g.font='bold 14px sans-serif';g.textAlign='center';for(const p of stops){if(p.title==='農家と話す')continue;if(p.active&&!p.active())continue;let [u,v]=pt(p.x,1.8,p.z),label=p.icon||p.title;let w=g.measureText(label).width+12;g.fillStyle='#fff3d8';g.fillRect(u-w/2,v-16,w,21);g.fillStyle='#374d38';g.fillText(label,u,v)}
 }
 }
@@ -59,3 +64,4 @@ function render(){
  if(!drawLight){try{render3D();return}catch(err){console.error(err);switchMode()}}
  drawLight();const p=nearest();$('interact').hidden=!p;if(p)$('interact').textContent=p.title+'　(E)'
 }
+
