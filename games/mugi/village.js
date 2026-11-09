@@ -49,7 +49,7 @@ function land(x,z,w,d,c,h=.05){
  m.rotation.x=-Math.PI/2;m.position.set(x,meadow?-.05:ridge?.045:(w>d?.018:.015),z);world.add(m);return m
 }
 land(0,-5,130,100,0x9ab778);land(0,-9,49,2.3,0xd9bd8d);land(0,5,49,2.2,0xd9bd8d);land(-7,-6,2,34,0xd9bd8d);land(6,-6,1.7,26,0xd9bd8d);
-function label(text,x,y,z){let c=document.createElement('canvas');c.width=384;c.height=80;let g=c.getContext('2d');g.fillStyle='#fff3d7';g.fillRect(0,0,384,80);g.strokeStyle='#a48b61';g.lineWidth=7;g.strokeRect(3,3,378,74);g.fillStyle='#395043';g.font='bold 43px serif';g.textAlign='center';g.fillText(text,192,55,362);let tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;let spr=new T.Sprite(new T.SpriteMaterial({map:tex}));spr.position.set(x,y,z);spr.scale.set(3.3,.69,1);world.add(spr)}
+function label(text,x,y,z){let c=document.createElement('canvas');c.width=384;c.height=80;let g=c.getContext('2d');g.fillStyle='#fff3d7';g.fillRect(0,0,384,80);g.strokeStyle='#a48b61';g.lineWidth=7;g.strokeRect(3,3,378,74);g.fillStyle='#395043';g.font='bold 43px serif';g.textAlign='center';g.fillText(text,192,55,362);let tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;let spr=new T.Sprite(new T.SpriteMaterial({map:tex}));spr.position.set(x,y,z);spr.scale.set(3.3,.69,1);world.add(spr);return spr}
 function house(x,z,name,col){blocks.push({x,z,w:3.4,d:2.7});illustration('house',4.9,4.6,x,.04,z+1.35,world);label(name,x,4.65,z)}
 function stop(x,z,title,act,icon,active){stops.push({x,z,title,act,icon,active})}
 house(-4,-3,'わが家',0xb36a53);stop(-4,-1,'家に入る',()=>panel('わが家','明日に備えてゆっくり過ごそう。',[['朝まで眠る',rest],...(s.time>=1080?[['夜の通販',()=>shop(true)]]:[]),...(localDay()===24&&!s.cards.some(c=>c.year===year())?[['収穫祭へ',festival]]:[])]),'家');
@@ -58,12 +58,22 @@ house(-20,0,'掃除の仕事',0xb38850);stop(-20,2,'バイト受付',job,'バイ
 illustration('crate',1.5,1.4,3,0,3.6,world);for(const [x,z] of blossoms)illustration('flowers',.55,.48,x,.04,z,world);label('出荷箱',3,1.85,3.6);
 stop(3,3.6,'麦を出荷',()=>{let total=s.bales*20;s.money+=total;s.bales=0;save();panel('出荷箱',total?'売上 ＋'+total+'枚':'刈った麦をここに運びましょう。')},'出荷');
 for(const [i,[x,z]] of plots.entries()){
-  if(i>=3){house(x,z-5,i===3?'ハナの家':'ゲンの家',i===3?0xb87862:0x819e79);stop(x,z-3.45,'農家と話す',()=>visit(i))}
+  if(i>=3){house(x,z-5,i===3?'ハナの家':'ゲンの家',i===3?0xb87862:0x819e79);stop(x,z+3.5,'農家と話す',()=>visit(i))}
   if(i===1||i===2){label('開拓地',x+3,1.3,z+3);stop(x+3,z+3,'開拓を相談',()=>visit(i),null,()=>!s.fields[i])}
 }
 function farmer(x,z,shirt){const p=new T.Group();world.add(p);p.position.set(x,0,z);p.userData.portrait=illustration('front',.95,2,x*0,0,0,p);return p}
 for(const [x,z] of orchard)illustration('tree',3.4,3.45,x,0,z,world);
-const hero=farmer(0,0,0x538982);farmer(-16,-18.5,0x997caa);farmer(-3,-18.5,0xb17d4b);
+const hero=farmer(0,0,0x538982);
+hero.userData.portrait.material.depthTest=false;
+hero.userData.portrait.material.depthWrite=false;
+hero.userData.portrait.renderOrder=20;
+for(const v of villagers){
+ const person=farmer(v.x,v.z,0x997caa);
+ person.userData.portrait.material.depthTest=false;
+ person.userData.portrait.renderOrder=15;
+ const tag=label(v.name,v.x,3.2,v.z);tag.material.depthTest=false;tag.renderOrder=25;tag.scale.set(1.2,.4,1);
+}
+
 const hand=new T.Group();hero.add(hand);hand.position.set(.27,.85,.1);
 part(hand,tube,0x976a3e,0,0,.29,.045,.70,.045).rotation.x=Math.PI/2;
 const hoop=part(hand,new T.TorusGeometry(.26,.027,6,18),0xf7e3b5,0,.10,.74,1,1,1);

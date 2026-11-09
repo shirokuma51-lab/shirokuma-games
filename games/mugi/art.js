@@ -23,3 +23,5 @@ function earthTexture(ridge){
 const soils=[earthTexture(false),earthTexture(true)];
 
 const blossoms=[[-2.7,2],[-3,1.6],[2.8,-2],[4.4,3.7],[-4.5,1.8],[.5,-4.7],[5.8,-8.2]];
+
+const villagers=[{x:-16,z:-11.5,name:'ハナ'},{x:-3,z:-11.5,name:'ゲン'}];

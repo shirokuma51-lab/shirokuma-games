@@ -28,8 +28,11 @@ return function draw(){
  for(const e of s.structures){let [x,z]=plots[e.place];objects.push([z+e.z,()=>cube(x+e.x,z+e.z,e.n==='塀'?1.6:.7,.4,e.n==='塀'?.7:1.7,['#d7b477','#b78d5d','#9a7453'])])}
  for(const b of s.bugs){let [x,z]=plots[b.place];objects.push([z+b.z,()=>{let [u,v]=pt(x+b.x,.6+.15*Math.sin(tick*8),z+b.z);oval(u,v,k*(b.big?.34:.22),k*.12,'#476b3e') }])}
  objects.push([3.6,()=>stamp("crate",3,3.6,1.5,1.4)||cube(3,3.6,1.2,.85,.98,['#dbb67c','#ad8256','#896548'])],[wz(),person]);
+ for(const v of villagers)objects.push([v.z,()=>{stamp('front',v.x,v.z,.95,2);const [u,w]=pt(v.x,2.4,v.z);g.font='bold 14px sans-serif';g.textAlign='center';g.fillStyle='#fff8e5';g.fillRect(u-24,w-16,48,22);g.fillStyle='#334d3d';g.fillText(v.name,u,w)}]);
  objects.sort((a,b)=>a[0]-b[0]).forEach(o=>o[1]());
- g.font='bold 14px sans-serif';g.textAlign='center';for(const p of stops){if(p.active&&!p.active())continue;let [u,v]=pt(p.x,1.8,p.z),label=p.icon||p.title;let w=g.measureText(label).width+12;g.fillStyle='#fff3d8';g.fillRect(u-w/2,v-16,w,21);g.fillStyle='#374d38';g.fillText(label,u,v)}
+ person();
+
+ g.font='bold 14px sans-serif';g.textAlign='center';for(const p of stops){if(p.title==='農家と話す')continue;if(p.active&&!p.active())continue;let [u,v]=pt(p.x,1.8,p.z),label=p.icon||p.title;let w=g.measureText(label).width+12;g.fillStyle='#fff3d8';g.fillRect(u-w/2,v-16,w,21);g.fillStyle='#374d38';g.fillText(label,u,v)}
 }
 }
 let drawLight;
