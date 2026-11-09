@@ -17,9 +17,37 @@ const geoFoliage=new THREE.SphereGeometry(1,12,10);
 }
 const geoBox=new THREE.BoxGeometry(1,1,1);
 const geoCylinder=new THREE.CylinderGeometry(1,1,1,12);
+
+const paintedTextures=new Map();
+function paintedTexture(kind){
+ if(paintedTextures.has(kind))return paintedTextures.get(kind);
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
+ const g=canvas.getContext('2d');let seed=731;
+ const random=()=>((seed=seed*16807%2147483647)/2147483647);
+ g.fillStyle='#eee9dc';g.fillRect(0,0,256,256);
+ for(let i=0;i<2400;i++){
+  const a=random(),x=random()*256,y=random()*256;
+  g.fillStyle=a>.5?'rgba(255,255,245,.14)':'rgba(74,53,31,.065)';
+  g.fillRect(x,y,kind==='wood'?1+random()*2:1.5,kind==='wood'?8+random()*48:1.5);
+ }
+ if(kind==='wood'){
+  for(let i=0;i<18;i++){const x=i*15;g.strokeStyle='rgba(72,48,30,.14)';g.lineWidth=.8;g.beginPath();g.moveTo(x,0);g.bezierCurveTo(x+10,90,x-8,170,x+3,256);g.stroke()}
+ }else if(kind==='fabric'){
+  g.strokeStyle='rgba(89,76,62,.13)';g.lineWidth=.5;
+  for(let i=0;i<256;i+=4){g.beginPath();g.moveTo(0,i);g.lineTo(256,i);g.moveTo(i,0);g.lineTo(i,256);g.stroke()}
+ }
+ const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+ paintedTextures.set(kind,texture);return texture;
+}
+const woodColors=new Set([0x796044,0x765945,0x82634a,0x96674e,0x735940,0x8c6343,0xb58a59,0xa17950,0x715545,0x8b6244]);
+const fabricColors=new Set([0x927b9f,0xa06b4e,0x5a8885,0xb6a6a7,0x4e7370,0xe0d5b8,0x707851,0x4d7272]);
+
 function modelPart(parent,geo,color,x,y,z,sx,sy,sz){
   const key=String(color)+(geo===geoFoliage?'leaf':'');
-  if(!modelMaterials.has(key))modelMaterials.set(key,new THREE.MeshStandardMaterial({color,roughness:.95,vertexColors:geo===geoFoliage}));
+  if(!modelMaterials.has(key)){
+   const texture=geo===geoFoliage?null:paintedTexture(woodColors.has(color)?'wood':fabricColors.has(color)?'fabric':'plaster');
+   modelMaterials.set(key,new THREE.MeshStandardMaterial({color,roughness:.92,vertexColors:geo===geoFoliage,map:texture}));
+  }
   const mesh=new THREE.Mesh(geo,modelMaterials.get(key));
   mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);
   mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
@@ -31,14 +59,31 @@ function beam(parent,a,b,r,color){
  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());
  return mesh;
 }
+
+const roofTileGeometry=(()=>{
+ const points=[],indices=[];
+ for(let row=0;row<2;row++)for(let i=0;i<=6;i++){
+  const x=i/6-.5;points.push(x,.06*Math.cos(x*Math.PI),row-.5);
+ }
+ for(let i=0;i<6;i++)indices.push(i,i+7,i+1,i+1,i+7,i+8);
+ const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
+})();
 function roof(parent,width,depth,base,rise,color){
  const shape=new THREE.Shape();shape.moveTo(-width/2,0);shape.lineTo(0,rise);shape.lineTo(width/2,0);shape.closePath();
  const geometry=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false});
  modelPart(parent,geometry,color,0,base,-depth/2,1,1,1);
- for(let side of [-1,1])for(let i=0;i<8;i++){
-   const f=(i+.5)/8,x=side*width/2*f,y=base+rise*(1-f)+.04;
-   beam(parent,[x,y,-depth/2-.03],[x,y,depth/2+.03],.027,0x715545);
+ const slope=Math.atan2(rise,width/2);
+ const palette=[color,new THREE.Color(color).multiplyScalar(.9).getHex(),new THREE.Color(color).multiplyScalar(1.08).getHex()];
+ for(const side of [-1,1])for(let row=0;row<7;row++)for(let col=0;col<12;col++){
+   const f=(row+.5)/7,x=side*width/2*f,z=-depth/2+(col+.5)*depth/12;
+   const tile=modelPart(parent,roofTileGeometry,palette[(row*7+col*5)%3],x,base+rise*(1-f)+.045,z,width/14+.05,1,depth/12+.04);
+   tile.rotation.z=-side*slope;
  }
+ for(const side of [-1,1]){
+  beam(parent,[side*width/2,base,-depth/2],[side*width/2,base,depth/2],.055,0x715545);
+  for(const z of [-depth/2,depth/2])beam(parent,[0,base+rise+.02,z],[side*width/2,base,z],.045,0x715545);
+ }
+ for(let z=-depth/2;z<depth/2;z+=.23)modelPart(parent,geoCylinder,palette[2],0,base+rise+.06,z,.09,.25,.09).rotation.x=Math.PI/2;
 }
 function windowFrame(parent,x,y,z){
  modelPart(parent,geoBox,0x6a928b,x,y,z,.58,.65,.07);
@@ -66,8 +111,12 @@ function cottage(kind){
    if(barn)for(let x=-1.5;x<=1.5;x+=.3)modelPart(group,geoBox,0x735940,x,y,1.38,.025,.38,.02);
  }
  if(green){
-   const curved=new THREE.CylinderGeometry(1.85,1.85,3.15,20,1,false,0,Math.PI);
-   const cover=modelPart(group,curved,roofColor,0,h+.15,0,1,1,1);cover.rotation.x=Math.PI/2;cover.rotation.z=Math.PI/2;cover.scale.set(1,.9,.6);
+   const arch=new THREE.Shape();arch.moveTo(-1.95,0);
+   for(let i=0;i<=24;i++){const angle=Math.PI-i*Math.PI/24;arch.lineTo(Math.cos(angle)*1.95,Math.sin(angle)*.9)}
+   arch.lineTo(-1.95,0);arch.closePath();
+   modelPart(group,new THREE.ExtrudeGeometry(arch,{depth:3.15,bevelEnabled:false}),roofColor,0,h+.15,-1.575,1,1,1);
+   for(let i=0;i<24;i++){const a=i*2.4;modelPart(group,geoFoliage,0x88975b,Math.sin(a)*1.6,h+.35+.65*Math.sqrt(1-Math.sin(a)**2),Math.cos(i)*1.4,.22,.08,.2)}
+
  }else roof(group,3.9,3.2,h+.2,barn?1.65:1.05,roofColor);
  modelPart(group,geoBox,0x827963,1.1,h+1.0,-.55,.45,1.25,.45);
  for(let j=0;j<4;j++)modelPart(group,geoBox,0xb0a38a,1.1,h+.65+j*.25,-.55,.48,.045,.48);
@@ -88,6 +137,33 @@ function cottage(kind){
    modelPart(group,geoCylinder,0xa87550,x,.18,.8-j*.4,.17,.32,.17);
    modelPart(group,geoRound,0x70854c,x,.45,.8-j*.4,.25,.28,.23);
  }
+
+ // Corner stones and wall beams give each side a readable structure.
+ for(const x of [-1.66,1.66])for(const z of [-1.33,1.33]){
+  for(let y=.25;y<.85;y+=.2)modelPart(group,geoBox,0xafa48c,x,y,z,.24,.16,.22);
+  modelPart(group,geoBox,0x82634a,x,h/2+.2,z,.1,h,.1);
+ }
+ for(const z of [-1.38,1.38])modelPart(group,geoBox,0x82634a,0,h+.14,z,3.45,.12,.1);
+ const back=new THREE.Group();back.rotation.y=Math.PI;group.add(back);windowFrame(back,0,1.15,1.4);
+ for(const side of [-1,1]){
+  const wall=new THREE.Group();wall.rotation.y=side*Math.PI/2;group.add(wall);windowFrame(wall,0,1.15,1.73);
+ }
+ // Planked door, iron hinges, porch lamp and worn stepping stones.
+ for(let x=-.3;x<=.3;x+=.15)modelPart(group,geoBox,0x8b6244,x,.9,1.455,.018,1.4,.015);
+ for(const y of [.45,1.3])modelPart(group,geoBox,0x544d40,-.29,y,1.47,.17,.045,.03);
+ beam(group,[.65,1.6,1.4],[.65,1.6,1.65],.025,0x544d40);
+ modelPart(group,geoBox,0x544d40,.65,1.4,1.65,.2,.3,.2);
+ modelPart(group,geoBox,0xffdf95,.65,1.42,1.76,.13,.19,.025);
+ for(let i=0;i<3;i++)modelPart(group,geoRound,0xb9b097,(i%2-.5)*.08,.035,1.95+i*.37,.35,.05,.22);
+ if(tall){
+  modelPart(group,geoBox,0x82634a,0,2.13,1.65,2.8,.12,.55);
+  for(let x=-1.35;x<=1.35;x+=.27)beam(group,[x,2.15,1.92],[x,2.65,1.92],.025,0x82634a);
+  beam(group,[-1.4,2.65,1.92],[1.4,2.65,1.92],.035,0x82634a);
+ }
+ if(shop)for(let i=0;i<3;i++){
+  modelPart(group,geoRound,0xc5b38c,-1.3+i*.45,.35,2.35,.22,.35,.2);
+  modelPart(group,geoCylinder,0x967d52,-1.3+i*.45,.61,2.35,.13,.035,.13);
+ }
  return group;
 }
 function treeModel(apple,height){
@@ -100,6 +176,12 @@ function treeModel(apple,height){
  }
  modelPart(group,geoFoliage,0x8b9f58,0,3.05,0,.9,.7,.85);
  if(apple)for(let i=0;i<12;i++){const a=i*2.4;modelPart(group,geoRound,0xb75b3f,Math.sin(a)*1.1,2.2+(i%3)*.25,Math.cos(a)*1.1,.095,.1,.095)}
+ 
+ for(let i=0;i<5;i++){const a=i*1.26;beam(group,[0,.35,0],[Math.sin(a)*.45,.025,Math.cos(a)*.45],.065,wood)}
+ for(let i=0;i<(apple?18:6);i++){
+  const a=i*2.4,y=2.15+(i%4)*.26,r=1.05-.12*(i%3);
+  modelPart(group,geoFoliage,[0x789650,0x91a65f][i%2],Math.sin(a)*r,y,Math.cos(a)*r,.26,.18,.24);
+ }
  group.scale.setScalar(height/3.7);return group;
 }
 function cropModel(){
@@ -163,6 +245,27 @@ function personModel(kind){
   if(kind==='gen')round(0x594735,0,1.36,.225,.12,.045,.035);
   else{round(0xaf6248,0,1.22,.19,.16,.06,.08);modelPart(group,geoBox,0xaf6248,.07,1.12,.24,.08,.2,.035)}
  }
+
+ // Small features remain legible when the player zooms in.
+ for(const side of [-1,1]){
+  beam(group,[side*.06,1.56,.228],[side*.125,1.55,.22],.012,0x635041);
+  round(0xf4d3bb,side*.15,1.40,.195,.055,.025,.012);
+  round(0xfff3db,side*.08,1.502,.243,.008,.011,.008);
+ }
+ const smile=new THREE.CatmullRomCurve3([new THREE.Vector3(-.06,1.36,.226),new THREE.Vector3(0,1.345,.244),new THREE.Vector3(.06,1.36,.226)]);
+ modelPart(group,new THREE.TubeGeometry(smile,8,.008,5,false),0x956a57,0,0,0,1,1,1);
+ if(kind==='hero'){
+  modelPart(group,geoBox,0x426d70,0,.87,.25,.2,.15,.025);
+  for(const side of [-1,1])round(0xc9a762,side*.13,1.08,.235,.025,.025,.012);
+  modelPart(group,geoCylinder,0x9c6d49,0,1.76,0,.28,.04,.27);
+  for(let i=0;i<6;i++)beam(group,[-.12+i*.045,.81,.27],[-.12+i*.045,.92,.27],.003,0xa6b9a3);
+ }else if(kind==='hana'){
+  modelPart(group,geoBox,0xe2d4b8,0,.76,.31,.35,.48,.035);
+  for(let i=0;i<3;i++)round(0xb29a72,.04,.85-i*.13,.34,.025,.025,.01);
+ }else{
+  for(const side of [-1,1])modelPart(group,geoBox,0x86573e,side*.16,.93,.24,.12,.15,.025);
+  for(let i=0;i<3;i++)round(0xc7ab72,0,1.1-i*.12,.245,.018,.018,.01);
+ }
  const joints={arms:[],legs:[]};
  for(let side of [-1,1]){
   const arm=new THREE.Group();arm.position.set(side*.3,1.16,0);group.add(arm);
@@ -170,7 +273,10 @@ function personModel(kind){
   modelPart(arm,geoRound,skin,side*.06,-.36,.015,.065,.12,.07);joints.arms.push(arm);
   const leg=new THREE.Group();leg.position.set(side*.13,.63,0);group.add(leg);
   modelPart(leg,geoRound,kind==='gen'?0x707851:0x4d7272,0,-.22,0,.105,.28,.11);
-  modelPart(leg,geoRound,0x66523e,0,-.5,.055,.12,.1,.18);joints.legs.push(leg);
+  modelPart(leg,geoRound,0x66523e,0,-.5,.055,.12,.1,.18);
+  modelPart(leg,geoBox,0x463e31,0,-.56,.06,.23,.04,.3);
+  for(let j=0;j<3;j++)beam(leg,[-.065,-.44+j*.025,.14],[.065,-.44+j*.025,.14],.007,0xc1a77c);
+  joints.legs.push(leg);
  }
  group.userData.joints=joints;
  return group;
@@ -190,3 +296,4 @@ function batchModels(){
  }
  for(const root of staticModels)root.removeFromParent();
 }
+

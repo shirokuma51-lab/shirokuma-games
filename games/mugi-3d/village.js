@@ -66,7 +66,7 @@ function book(){
 }
 const T=THREE; let cv=$('world');let renderer;
 try{renderer=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'low-power',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2))}catch{renderer=null}
-let cameraYaw=0;
+let cameraYaw=0,cameraZoom=1.15;
 const world=new T.Scene(),cam=new T.OrthographicCamera(-8,8,8,-8,.1,140);
 world.background=new T.Color(0xc2ded9);world.fog=new T.FogExp2(0xc2ded9,.012);
 const sky=new T.HemisphereLight(0xfff4dc,0x9fa482,1.95),sun=new T.DirectionalLight(0xffe3a9,2.1);
@@ -81,6 +81,7 @@ sun.position.set(-12,23,11);world.add(sky,sun);
  sun.shadow.normalBias=.08;sun.shadow.bias=-.0001;
  $('turn-left').onclick=()=>{cameraYaw-=Math.PI/4};
  $('turn-right').onclick=()=>{cameraYaw+=Math.PI/4};
+ $('zoom').onclick=()=>{cameraZoom=cameraZoom>1.7?1.15:cameraZoom+.35;$('zoom').textContent='拡大 '+cameraZoom.toFixed(1)+'倍'};
 
 const box=new T.BoxGeometry(1,1,1),ball=new T.SphereGeometry(1,10,8),cone=new T.ConeGeometry(1,1,4),tube=new T.CylinderGeometry(1,1,1,12);
 const mats=new Map();
@@ -187,7 +188,7 @@ function updateObjects(){
  for(let b of s.bugs){let m=insects.get(b);if(!m){m=new T.Group();world.add(m);insects.set(b,m);part(m,ball,b.big?0x945939:0x4b6d3a,0,0,0,.23,.13,.38);for(let side of [-1,1])part(m,ball,0xabbe70,side*.15,.08,0,.13,.055,.28);m.scale.setScalar(b.big?1.75:1)}m.position.set(plots[b.place][0]+b.x,.62+.17*Math.sin(tick*9+b.x),plots[b.place][1]+b.z)}
 }
 function render3D(){
- let w=cv.clientWidth,h=cv.clientHeight,r=w/h;let span=Math.max(6.1/r,7.4);
+ let w=cv.clientWidth,h=cv.clientHeight,r=w/h;let span=Math.max(6.1/r,7.4)/cameraZoom;
  if(cv.width!==Math.floor(w*renderer.getPixelRatio())||cv.height!==Math.floor(h*renderer.getPixelRatio()))renderer.setSize(w,h,false);
  cam.left=-span*r;cam.right=span*r;cam.top=span;cam.bottom=-span;cam.updateProjectionMatrix();
  const x=wx(),z=wz();
@@ -200,7 +201,7 @@ function render3D(){
  const phase=walkDistance*5.5,amount=isWalking?.45:0;
  hero.userData.joints.legs.forEach((limb,i)=>limb.rotation.x=Math.sin(phase+i*Math.PI)*amount);
  hero.userData.joints.arms.forEach((limb,i)=>limb.rotation.x=-Math.sin(phase+i*Math.PI)*amount*.8);
- hoop.visible=s.tool==='網';blade.visible=!hoop.visible;hand.rotation.y=slash>0?Math.sin(slash/.28*Math.PI)*1.7:0;
+ hoop.visible=s.tool==='網';blade.visible=['鎌','大鎌','手押し刈取機'].includes(s.tool);hand.rotation.y=slash>0?Math.sin(slash/.28*Math.PI)*1.7:0;
  sun.intensity=s.time>=1080?.65:2.1;sky.intensity=s.time>=1080?1.15:1.95;updatePlants();updateObjects();renderer.render(world,cam);
  let p=nearest();$('interact').hidden=!p;if(p)$('interact').textContent=p.title+'　(E)'
 }
@@ -213,3 +214,4 @@ function render(){if(renderer)render3D()}
 if(!renderer){
  panel('3D表示を開始できません','この試作にはWebGL 2対応のブラウザが必要です。Chromeなどで開いてください。',[['通常版を開く',()=>location.href='../mugi/']],false);
 }
+
