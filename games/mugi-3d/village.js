@@ -108,7 +108,7 @@ house(-4,-3,'わが家','house');stop(-4,-1,'家に入る',()=>panel('わが家'
 house(-14,0,'農具店','shop',4);stop(-14,2,'農具店へ',()=>shop(false),'農具店');
 house(-20,0,'掃除の仕事','guesthouse',5.1);stop(-20,2,'バイト受付',job,'バイト');
 modelIllustration('crate',1.5,1.4,3,0,3.6,world);for(const [x,z] of blossoms)modelIllustration('flowers',.55,.48,x,.04,z,world);label('出荷箱',3,1.85,3.6);
-stop(3,3.6,'麦を出荷',()=>{let total=s.bales*20;s.money+=total;s.bales=0;save();panel('出荷箱',total?'売上 ＋'+total+'枚':'刈った麦をここに運びましょう。')},'出荷');
+stop(3,3.6,'麦を出荷',()=>{let total=s.bales*20+(s.qualityBonus||0);s.qualityBonus=0;s.money+=total;s.bales=0;save();panel('出荷箱',total?'売上 ＋'+total+'枚':'刈った麦をここに運びましょう。')},'出荷');
 for(const [i,[x,z]] of plots.entries()){
   if(i>=3){house(x,z-5,i===3?'ハナの家':'ゲンの家',i===3?'hana-house':'gen-house',i===3?3.8:4.7);stop(x,z+3.5,'農家と話す',()=>visit(i))}
   if(i===1||i===2){label('開拓地',x+3,1.3,z+3);stop(x+3,z+3,'開拓を相談',()=>visit(i),null,()=>!s.fields[i])}
@@ -147,9 +147,10 @@ for(let i=3;i<=4;i++)if(!s.fields[i].some(c=>c.day)&&!s.started)s.fields[i].forE
 const rows=[],plants=[],equipment=new Map(),insects=new Map();
 
 let oldPlants='';
+const wetSoil=[];
 const cropMatrix=new T.Object3D(),cropColor=new T.Color();
 function updatePlants(){
- const signature=s.day+'|'+s.fields.map(f=>f?.map(c=>c.day).join(',')).join('|');
+ const signature=s.day+'|'+s.fields.map(f=>f?.map(c=>c.day+':'+c.wateredDay).join(',')).join('|');
  if(signature===oldPlants)return;
  oldPlants=signature;
  s.fields.forEach((cells,i)=>{
@@ -162,6 +163,8 @@ function updatePlants(){
     mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;world.add(mesh);return mesh;
    });
   }
+  if(!wetSoil[i])wetSoil[i]=cells.map(c=>{const patch=new T.Mesh(new T.CircleGeometry(.53,20),new T.MeshStandardMaterial({color:0x61503b,roughness:1}));patch.rotation.x=-Math.PI/2;patch.position.set(x+c.x,.175,z+c.z);world.add(patch);return patch});
+  cells.forEach((c,j)=>wetSoil[i][j].visible=!!c.day&&c.wateredDay===s.day);
   let stem=0,grain=0;
   for(const c of cells){
    if(!c.day)continue;
