@@ -1,5 +1,5 @@
 'use strict';
-const modelMaterials=new Map(),staticModels=[];
+const modelMaterials=new Map(),staticModels=[],seasonalBatches=[];
 const geoRound=new THREE.SphereGeometry(1,14,10);
 const geoFoliage=new THREE.SphereGeometry(1,12,10);
 {
@@ -69,6 +69,7 @@ const roofTileGeometry=(()=>{
  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
 })();
 function roof(parent,width,depth,base,rise,color){
+ const before=new Set(parent.children);
  const shape=new THREE.Shape();shape.moveTo(-width/2,0);shape.lineTo(0,rise);shape.lineTo(width/2,0);shape.closePath();
  const geometry=new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false});
  modelPart(parent,geometry,color,0,base,-depth/2,1,1,1);
@@ -84,6 +85,7 @@ function roof(parent,width,depth,base,rise,color){
   for(const z of [-depth/2,depth/2])beam(parent,[0,base+rise+.02,z],[side*width/2,base,z],.045,0x715545);
  }
  for(let z=-depth/2;z<depth/2;z+=.23)modelPart(parent,geoCylinder,palette[2],0,base+rise+.06,z,.09,.25,.09).rotation.x=Math.PI/2;
+ for(const m of parent.children)if(!before.has(m))m.userData.seasonRole='roof';
 }
 function windowFrame(parent,x,y,z){
  modelPart(parent,geoBox,0x6a928b,x,y,z,.58,.65,.07);
@@ -164,6 +166,7 @@ function cottage(kind){
   modelPart(group,geoRound,0xc5b38c,-1.3+i*.45,.35,2.35,.22,.35,.2);
   modelPart(group,geoCylinder,0x967d52,-1.3+i*.45,.61,2.35,.13,.035,.13);
  }
+ if(green)group.traverse(m=>{if(m.isMesh&&m.position.y>h+.14&&(m.geometry===geoFoliage||m.material.color.getHex()===roofColor))m.userData.seasonRole='roof'});
  return group;
 }
 function treeModel(apple,height){
@@ -182,7 +185,7 @@ function treeModel(apple,height){
   const a=i*2.4,y=2.15+(i%4)*.26,r=1.05-.12*(i%3);
   modelPart(group,geoFoliage,[0x789650,0x91a65f][i%2],Math.sin(a)*r,y,Math.cos(a)*r,.26,.18,.24);
  }
- group.scale.setScalar(height/3.7);return group;
+ group.traverse(m=>{if(m.geometry===geoFoliage)m.userData.seasonRole='foliage';else if(m.material?.color.getHex()===0xb75b3f)m.userData.seasonRole='apple'});group.scale.setScalar(height/3.7);return group;
 }
 function cropModel(){
  const group=new THREE.Group();
@@ -216,6 +219,7 @@ function modelIllustration(kind,w,h,x,y,z,parent){
  }
  const building=['house','hana-house','gen-house','shop','guesthouse'].includes(kind);
  model.position.set(x,y,building?z-1.35:z);parent.add(model);
+ if(kind==='flowers')model.traverse(m=>{if(m.isMesh)m.userData.seasonRole='flower'});
  if(kind!=='sprout')staticModels.push(model);
  return model;
 }
@@ -285,13 +289,14 @@ function batchModels(){
  const batches=new Map();world.updateMatrixWorld(true);
  for(const root of staticModels)root.traverse(mesh=>{
   if(!mesh.isMesh)return;
-  const key=mesh.geometry.uuid+mesh.material.uuid;
+  const key=mesh.geometry.uuid+mesh.material.uuid+(mesh.userData.seasonRole||'');
   if(!batches.has(key))batches.set(key,[]);
   batches.get(key).push(mesh);
  });
  for(const meshes of batches.values()){
   const inst=new THREE.InstancedMesh(meshes[0].geometry,meshes[0].material,meshes.length);
   meshes.forEach((m,i)=>inst.setMatrixAt(i,m.matrixWorld));
+  const role=meshes[0].userData.seasonRole;if(role){inst.material=inst.material.clone();seasonalBatches.push({mesh:inst,role,color:inst.material.color.clone()})}
   inst.castShadow=true;inst.receiveShadow=true;world.add(inst);
  }
  for(const root of staticModels)root.removeFromParent();

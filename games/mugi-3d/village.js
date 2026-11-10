@@ -96,36 +96,33 @@ function land(x,z,w,d,c,h=.05){
  const m=new T.Mesh(new T.PlaneGeometry(w,d),new T.MeshStandardMaterial({map:tex,roughness:1}));
  m.receiveShadow=true;m.rotation.x=-Math.PI/2;m.position.set(x,meadow?-.05:ridge?.045:(w>d?.018:.015),z);world.add(m);return m
 }
-land(0,-5,130,100,0x9ab778);land(0,-9,49,2.3,0xd9bd8d);land(0,5,49,2.2,0xd9bd8d);land(-7,-6,2,34,0xd9bd8d);land(6,-6,1.7,26,0xd9bd8d);
+const meadow=land(0,-5,130,100,0x9ab778);land(0,-9,49,2.3,0xd9bd8d);land(0,5,49,2.2,0xd9bd8d);land(-7,-6,2,34,0xd9bd8d);land(6,-6,1.7,26,0xd9bd8d);
 function label(text,x,y,z){let c=document.createElement('canvas');c.width=384;c.height=80;let g=c.getContext('2d');g.fillStyle='#fff3d7';g.fillRect(0,0,384,80);g.strokeStyle='#a48b61';g.lineWidth=7;g.strokeRect(3,3,378,74);g.fillStyle='#395043';g.font='bold 64px serif';g.textAlign='center';g.fillText(text,192,64,362);let tex=new T.CanvasTexture(c);tex.colorSpace=T.SRGBColorSpace;let spr=new T.Sprite(new T.SpriteMaterial({map:tex}));spr.position.set(x,y,z);spr.scale.set(3.3,.69,1);world.add(spr);return spr}
 function house(x,z,name,art='house',height=4.6){
    blocks.push({x,z,w:3.4,d:2.7,art,height});
    modelIllustration(art,4.9,height,x,.04,z+1.35,world);
    label(name,x,height+.1,z);
  }
-function stop(x,z,title,act,icon,active){stops.push({x,z,title,act,icon,active})}
+function stop(x,z,title,act,icon,active){const point={x,z,title,act,icon,active};stops.push(point);return point}
 house(-4,-3,'わが家','house');stop(-4,-1,'家に入る',()=>panel('わが家','明日に備えてゆっくり過ごそう。',[['朝まで眠る',rest],...(s.time>=1080?[['夜の通販',()=>shop(true)]]:[]),...(localDay()===24&&!s.cards.some(c=>c.year===year())?[['収穫祭へ',festival]]:[])]),'家');
 house(-14,0,'農具店','shop',4);stop(-14,2,'農具店へ',()=>shop(false),'農具店');
 house(-20,0,'掃除の仕事','guesthouse',5.1);stop(-20,2,'バイト受付',job,'バイト');
 modelIllustration('crate',1.5,1.4,3,0,3.6,world);for(const [x,z] of blossoms)modelIllustration('flowers',.55,.48,x,.04,z,world);label('出荷箱',3,1.85,3.6);
 stop(3,3.6,'麦を出荷',()=>{let total=s.bales*20+(s.qualityBonus||0);s.qualityBonus=0;s.money+=total;s.bales=0;save();panel('出荷箱',total?'売上 ＋'+total+'枚':'刈った麦をここに運びましょう。')},'出荷');
 for(const [i,[x,z]] of plots.entries()){
-  if(i>=3){house(x,z-5,i===3?'ハナの家':'ゲンの家',i===3?'hana-house':'gen-house',i===3?3.8:4.7);stop(x,z+3.5,'農家と話す',()=>visit(i))}
+  if(i>=3){house(x,z-5,i===3?'ハナの家':'ゲンの家',i===3?'hana-house':'gen-house',i===3?3.8:4.7);stop(x,z+3.5,'農家と話す',()=>visit(i)).neighbor=i-3}
   if(i===1||i===2){label('開拓地',x+3,1.3,z+3);stop(x+3,z+3,'開拓を相談',()=>visit(i),null,()=>!s.fields[i])}
 }
 for(const tree of forest)modelIllustration(tree.art,tree.width,tree.height,tree.x,0,tree.z,world);
  const hero=personModel('hero');world.add(hero);
- const villagerLabels=[];
+ const villagerLabels=[],characters=[];
  for(const v of villagers){
    const person=personModel(v.art);person.position.set(v.x,0,v.z);world.add(person);
    const tag=label(v.name,v.x,2.4,v.z);tag.material.depthTest=false;tag.renderOrder=25;tag.scale.set(1.3,.48,1);
-   villagerLabels.push({tag,v});
+   villagerLabels.push({tag,v});characters.push({person,v,tag});
  }
 restoreWalkablePosition();
 const hand=new T.Group();hero.userData.joints.arms[1].add(hand);hand.position.set(.06,-.4,.1);
-part(hand,tube,0x976a3e,0,0,.29,.045,.70,.045).rotation.x=Math.PI/2;
-const hoop=part(hand,new T.TorusGeometry(.26,.027,6,18),0xf7e3b5,0,.10,.74,1,1,1);
-const blade=part(hand,ball,0xb9c9bf,0,.07,.71,.08,.06,.27);
 // Static scenery shares geometry and materials, so draw it in batches on phones.
 function batchScenery(){
   const batches=new Map();
@@ -168,7 +165,7 @@ function updatePlants(){
   let stem=0,grain=0;
   for(const c of cells){
    if(!c.day)continue;
-   const age=Math.min(5,s.day-c.day),scale=.3+age*.14;
+   const age=Math.min(5,s.day-c.day),scale=.48+age*.104;
    for(let j=0;j<5;j++){
     const a=j*2.4,px=x+c.x+Math.sin(a)*.23,pz=z+c.z+Math.cos(a)*.23;
     cropMatrix.position.set(px,.4*scale,pz);cropMatrix.rotation.set(0,0,.035*Math.sin(a));
@@ -197,6 +194,7 @@ function render3D(){
  const x=wx(),z=wz();
  cam.position.set(x+Math.sin(cameraYaw)*13,16,z+Math.cos(cameraYaw)*13);
  cam.lookAt(x,0,z);cam.updateMatrixWorld();
+ updateVillageLife();
  const screenUp=new T.Vector3(0,1,0).applyQuaternion(cam.quaternion);
  for(const {tag,v} of villagerLabels)tag.position.set(v.x,0,v.z).addScaledVector(screenUp,2.4);
  hero.position.set(x,0,z);
@@ -204,7 +202,7 @@ function render3D(){
  const phase=walkDistance*5.5,amount=isWalking?.45:0;
  hero.userData.joints.legs.forEach((limb,i)=>limb.rotation.x=Math.sin(phase+i*Math.PI)*amount);
  hero.userData.joints.arms.forEach((limb,i)=>limb.rotation.x=-Math.sin(phase+i*Math.PI)*amount*.8);
- hoop.visible=s.tool==='網';blade.visible=['鎌','大鎌','手押し刈取機'].includes(s.tool);hand.rotation.y=slash>0?Math.sin(slash/.28*Math.PI)*1.7:0;
+
  sun.intensity=s.time>=1080?.65:2.1;sky.intensity=s.time>=1080?1.15:1.95;updatePlants();updateObjects();renderer.render(world,cam);
  let p=nearest();$('interact').hidden=!p;if(p)$('interact').textContent=p.title+'　(E)'
 }

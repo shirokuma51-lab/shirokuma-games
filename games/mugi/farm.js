@@ -22,7 +22,14 @@ function visit(p){if(!s.fields[p]){let price=p===1?480:850;return panel(sites[p]
 function use(){if(dlg.open||cool>0)return;cool=s.tired>=90&&!(s.drugUntil>s.time)?.9:.28;slash=.28;let tool=s.tool,range=tool==='手押し刈取機'?3:tool==='大鎌'||tool==='火炎放射器'?2.6:1.8;
 const near=o=>{let x=o.x-s.x,z=o.z-s.z,d=Math.hypot(x,z);return d<range&&(d<.8||x*Math.sin(s.dir)+z*Math.cos(s.dir)>-.1)};
 let crops=(s.fields[s.scene]||[]).filter(near),own=s.scene<3,n=0;
-if(tool==='種'&&own){for(const c of crops)if(!c.day&&s.seeds){c.day=s.day;c.waterCount=0;c.wateredDay=0;s.seeds--;n++}notify(n?'種をまいた　残り '+s.seeds+'粒':'空いた畝に近づいて種をまこう')}
+if(tool==='種'){
+ if(!own)return notify('ここは隣人の畑です。自分の畑に種をまこう');
+ if(!s.fields[s.scene])return notify('この土地はまだ開拓されていません');
+ if(s.seeds<=0)return notify('種がありません。街の農具店で種袋を買おう');
+ const empty=s.fields[s.scene].filter(c=>!c.day),target=empty.filter(c=>Math.hypot(c.x-s.x,c.z-s.z)<=2.5).sort((a,b)=>Math.hypot(a.x-s.x,a.z-s.z)-Math.hypot(b.x-s.x,b.z-s.z))[0];
+ if(!target)return notify(empty.length?'空いた畝の目印に近づこう':'この畑はすべて種まき済みです');
+ s.dir=Math.atan2(target.x-s.x,target.z-s.z);target.day=s.day;target.waterCount=0;target.wateredDay=0;s.seeds--;n=1;tone(520,.12);notify('種をまいた！ 残り '+s.seeds+'粒');
+}
 else if(tool==='じょうろ'){if(!own)return notify('自分の畑で水をあげよう');if(s.time>=720)return notify('水やりは朝6時〜12時に行えます');for(const c of crops)if(c.day&&s.day-c.day<5&&c.wateredDay!==s.day){c.wateredDay=s.day;c.waterCount=Math.min(5,(c.waterCount||0)+1);n++}if(n){tone(900,.18);log('朝の水やりで、麦を大切に育てておったな。')}notify(n?'水やり ＋'+n+'株。収穫時の品質が上がります':'育っている麦に近づこう。水やりは1日1回です')}
 else if(['鎌','大鎌','手押し刈取機'].includes(tool)&&own){for(const c of crops)if(c.day&&s.day-c.day>=5){s.qualityBonus=(s.qualityBonus||0)+Math.min(5,c.waterCount||0);c.day=0;s.bales++;s.harvest++;n++}if(n){log('鎌の音が畑に響いたのう。');tone(630,.18)}notify(n?'ザクッ！　麦束 ＋'+n:'種まきから6日目が刈り時です')}
 else if(['網','殺虫スプレー','火炎放射器'].includes(tool)){let hit=0;for(const b of s.bugs.filter(b=>b.place===s.scene&&near(b))){hit++;b.hp-=tool==='火炎放射器'?5:1;if(tool==='殺虫スプレー')b.wait=6;if(b.hp<=0)n++}s.bugs=s.bugs.filter(b=>b.hp>0);if(tool==='火炎放射器')crops.forEach(c=>c.day=0);if(n&&own)log('網を手に、麦畑を駆け回っておったな。');if(n&&!own){s.money+=n*4;let i=s.scene-3;if(s.helpDay[i]!==s.day){s.friends[i]++;s.helpDay[i]=s.day}log(sites[s.scene]+'を助けてくれたのう。')}if(hit)notify(n?'捕獲 '+n+'匹'+(own?'':'　お礼 ＋'+n*4+'枚'):'大型種に命中！');tone(hit?780:190)}
