@@ -1,6 +1,6 @@
 'use strict';
 const cleaningRoot=new URL('cleaning-art/',document.currentScript?.src||document.baseURI);
-const cleaningNames=['room','bookcase','dresser','table','chair','plant','basket'];
+const cleaningNames=['room','bookcase','dresser','table','chair','plant','basket','dust'];
 const cleaningPictures={};
 let cleaningReady=false;
 let cleaningLoad=null;
@@ -31,8 +31,29 @@ function makeCleaningLayout(){
 function prepareCleaningJob(){
  return {left:30,start:s.time,dots:Array(7).fill(true),layout:makeCleaningLayout(),roomVersion:2};
 }
-function dustGraphic(){
- return '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="#b7afa0" stroke="#777263" stroke-width=".7"><ellipse cx="20" cy="23" rx="12" ry="8"/><circle cx="12" cy="22" r="6"/><circle cx="17" cy="16" r="6"/><circle cx="24" cy="17" r="7"/><circle cx="28" cy="23" r="5"/></g><g fill="none" stroke="#777263" stroke-linecap="round"><path d="M9 19 5 15m8 1-2-5m9 4 1-6m8 9 6-4m-5 9 6 3m-18 4-2 5m-4-8-6 3"/><path d="m13 22 6-4 7 5-8 4" opacity=".5"/></g></svg>';
+
+function moveCleaningDust(){
+ const room=document.getElementById('cleaning-room');
+ if(!room||!s.job)return;
+ const width=room.clientWidth,height=room.clientHeight;
+ const time=30-s.job.left;
+ const reduce=s.job.motionEnabled===false;
+ const points=(s.job.motionOrigins||s.job.dots).map(point=>point?[point[0]*width/100,point[1]*height/100]:null);
+ for(const button of room.querySelectorAll('.cleaning-dust')){
+   const index=Number(button.dataset.dust),base=points[index];
+   if(!base)continue;
+   let nearest=Infinity;
+   for(let i=0;i<points.length;i++)if(i!==index&&points[i]){
+     nearest=Math.min(nearest,Math.hypot(base[0]-points[i][0],base[1]-points[i][1]));
+   }
+   // Keep circular drift areas apart, including the full 44px touch target.
+   const radius=reduce?0:Math.max(0,Math.min(14,(nearest-64)/2));
+   const angle=time*(.65+index*.035)+index*1.7;
+   const x=Math.max(24,Math.min(width-24,base[0]+Math.sin(angle)*radius));
+   const y=Math.max(24,Math.min(height-24,base[1]+Math.cos(angle)*radius*.65));
+   button.style.left=x+'px';button.style.top=y+'px';
+   button.firstElementChild.style.transform='rotate('+(reduce?0:Math.sin(angle)*9)+'deg)';
+ }
 }
 function dustLocations(room,layout){
  const width=room.clientWidth,height=room.clientHeight;
@@ -57,6 +78,11 @@ async function showCleaningRoom(){
    if(s.job!==active||request!==cleaningRequest)return;
    // Existing saves retain collected dust and remaining time.
    if(!active.layout)active.layout=makeCleaningLayout();
+   if(active.motionEnabled===undefined)active.motionEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+   const motionButton=document.createElement('button');motionButton.className='cleaning-motion';
+   const motionLabel=()=>motionButton.textContent=active.motionEnabled?'漂う動き：オン':'漂う動き：オフ';motionLabel();
+   motionButton.onclick=()=>{active.motionEnabled=!active.motionEnabled;motionLabel();moveCleaningDust();save()};
+   extra.append(motionButton);
    const room=document.createElement('div');room.id='cleaning-room';
    room.setAttribute('role','group');room.setAttribute('aria-label','家具のある部屋。綿ぼこりを探してタップ');
    const background=cleaningPictures.room.cloneNode();background.className='cleaning-background';background.alt='';
@@ -74,21 +100,25 @@ async function showCleaningRoom(){
      active.dots=active.dots.map((dot,i)=>dot?points[i]:null);
      active.roomVersion=2;
    }
+   if(!active.motionOrigins)active.motionOrigins=active.dots.map(point=>point?[...point]:null);
    active.dots.forEach((point,index)=>{
      if(!point)return;
      const button=document.createElement('button');button.type='button';button.className='cleaning-dust';
-     button.ariaLabel='綿ぼこり '+(index+1);button.innerHTML=dustGraphic();
+     button.ariaLabel='綿ぼこり '+(index+1);button.dataset.dust=index;
+     const dust=cleaningPictures.dust.cloneNode();dust.alt='';dust.draggable=false;button.append(dust);
      button.style.left=point[0]+'%';button.style.top=point[1]+'%';
-     button.onclick=()=>{
+     const collect=()=>{
        if(!cleaningReady||s.job!==active||!active.dots[index])return;
        active.dots[index]=null;button.remove();tone(420);
        if(!active.dots.some(Boolean)){cleaningReady=false;finishJob(true)}
        save();
      };
+     button.onclick=collect;
+     button.onpointerdown=event=>{event.preventDefault();collect()};
      room.append(button);
    });
    $('body').textContent='残り '+Math.ceil(active.left)+'秒 ・ ほこり '+active.dots.filter(Boolean).length+'個';
-   cleaningReady=true;save();
+   moveCleaningDust();cleaningReady=true;save();
  }catch{
    if(s.job===active)panel('家具を読み込めませんでした','時間は止まっています。通信を確認して再読み込みしてください。',[['もう一度読み込む',showCleaningRoom]],false);
  }
@@ -96,6 +126,7 @@ async function showCleaningRoom(){
 function updateCleaning(dt){
  if(!cleaningReady||!s.job)return;
  s.job.left=Math.max(0,s.job.left-dt);
+ moveCleaningDust();
  const target=s.job.start+Math.min(120,(30-s.job.left)*4);
  if(target>s.time)advance(target-s.time);
  const status='残り '+Math.ceil(s.job.left)+'秒 ・ ほこり '+s.job.dots.filter(Boolean).length+'個';
@@ -107,14 +138,17 @@ cleaningStyle.textContent=`
 dialog.cleaning-stage{width:min(96vw,480px);padding:14px;max-height:94dvh}
 .cleaning-stage>small{font-size:10px}
 .cleaning-stage h2{font-size:21px;margin:6px 0}
+.cleaning-motion{display:block;margin:0 0 6px auto;padding:4px 8px;font-size:12px}
 .cleaning-stage #body{margin:5px 0 10px;font-size:14px}
 #cleaning-room{position:relative;isolation:isolate;width:min(100%,calc((100dvh - 185px)*.72));aspect-ratio:2/3;margin:0 auto;border:3px solid #aa8559;border-radius:8px;overflow:hidden;background:#eed7a8;touch-action:manipulation}
 #cleaning-room .cleaning-background{position:absolute;width:100%;height:100%;inset:0;object-fit:fill;pointer-events:none}
 #cleaning-room .cleaning-furniture{position:absolute;height:auto;transform:translateX(-50%);pointer-events:none;user-select:none;filter:drop-shadow(0 3px 2px #51361729)}
 #cleaning-room .cleaning-dust{position:absolute;z-index:10;transform:translate(-50%,-50%);width:44px;height:44px;min-width:44px;padding:5px;border:0;border-radius:50%;background:transparent;touch-action:manipulation}
-#cleaning-room .cleaning-dust svg{display:block;width:100%;height:100%;filter:drop-shadow(0 1px 1px #fff3)}
+#cleaning-room .cleaning-dust img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 1px #51442c55)}
 #cleaning-room .cleaning-dust:focus-visible{outline:2px solid #436851;background:#fff3}
 `;
 document.head.append(cleaningStyle);
+
+
 
 
