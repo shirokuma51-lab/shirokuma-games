@@ -55,9 +55,10 @@ function buildShop(){
  Object.entries(goods).forEach(([name,price],i)=>{
   const [x,z]=positions[i],root=new T.Group();root.position.set(x,0,z);scene.add(root);
   modelPart(root,geoBox,0x82634a,0,.35,0,1.2,.7,1.1);modelPart(root,geoBox,0xd5b47b,0,.73,0,1.35,.12,1.25);
-  const model=displayModel(name);model.position.set(0,1.02,-.12);model.rotation.x=-.4;root.add(model);
+  const model=displayModel(name);model.position.set(0,1.02,-.5);model.rotation.x=-.4;root.add(model);
   root.userData.product=name;root.traverse(o=>o.userData.product=name);
-  scene.add(storeLabel(name+'\n'+price+'枚',x,1.75,z+.18));
+  // Place price cards on the front of each pedestal, below the displayed tool.
+  scene.add(storeLabel(name+'\n'+price+'枚',x,.95,z+.82));
   const item={x,z,name,root,title:name+'を見る　'+price+'枚',act:()=>inspectProduct(name)};
   shopProducts.push(item);shopObstacles.push({x,z,w:1.35,d:1.25});
  });
