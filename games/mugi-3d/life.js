@@ -15,9 +15,7 @@ function farmTool(name){
   rod([.1,-.04,.26],[.12,.16,.65],.055,0x438e98);
   piece(geoCylinder,steel,.12,.16,.7,.12,.06,.12).rotation.x=Math.PI/2;
  }else if(name==='網'){
-  rod([0,0,-.15],[0,0,.85],.035);
-  piece(new T.TorusGeometry(.34,.025,6,24),steel,0,0,.96,1,1,1);
-  const net=new T.Mesh(new T.ConeGeometry(.33,.42,12,5,true),new T.MeshStandardMaterial({color:0xe7f1d9,wireframe:true,transparent:true,opacity:.65}));net.rotation.x=-Math.PI/2;net.position.set(0,0,1.15);g.add(net);
+  return makeNetModel();
  }else if(name==='くわ'){
   rod([0,0,-.1],[0,0,.8],.035);piece(geoBox,steel,0,-.09,.8,.35,.22,.05);
  }else if(name==='鎌'||name==='大鎌'){

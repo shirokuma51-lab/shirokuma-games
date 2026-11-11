@@ -32,6 +32,7 @@ function restoreWalkablePosition(){
   setPosition(x,z);
 }
 function walk(dx,dz){
+  if(shopRoom)return walkShop(dx,dz);
   restoreWalkablePosition();
   const startX=wx(),startZ=wz();
   let x=startX,z=startZ;
@@ -48,10 +49,11 @@ function walk(dx,dz){
   return distance;
 }
 function areaName(){return Math.abs(s.x)<5&&Math.abs(s.z)<4.5?sites[s.scene]:'村の農道'}
-function nearest(){return stops.filter(p=>!p.active||p.active()).map(p=>[p,Math.hypot(p.x-wx(),p.z-wz())]).filter(a=>a[1]<2.5).sort((a,b)=>a[1]-b[1])[0]?.[0]}
+function nearest(){if(shopRoom)return nearestShop();return stops.filter(p=>!p.active||p.active()).map(p=>[p,Math.hypot(p.x-wx(),p.z-wz())]).filter(a=>a[1]<2.5).sort((a,b)=>a[1]-b[1])[0]?.[0]}
 function interact(){if(!dlg.open)nearest()?.act()}
 $('interact').onclick=interact;
 function book(){
+  if(shopRoom)return shopGuide();
   if(s.job)return job();
   panel('丘の地図と手帳','● 現在地　'+areaName()+'　／　麦束 '+s.bales+'　種 '+s.seeds+'粒\n地図の上が北。農道を歩き、看板に近づいて「調べる」を押そう。',[
     ['倉庫・設備設置・配達',inventory],['家の前の道へ戻る',()=>{setPosition(-4,1.5);dlg.close();save()}],['ひと休み（1時間）',()=>{advance(60);s.tired=Math.max(0,s.tired-5);dlg.close()}],...s.cards.slice(-3).map(c=>[c.year+'年目の絵葉書',()=>card(c)])]);
@@ -185,9 +187,11 @@ function updateObjects(){
  for(let [e,m] of equipment)if(!s.structures.includes(e)){world.remove(m);equipment.delete(e)}
  for(let e of s.structures){let m=equipment.get(e);if(!m){m=new T.Group();world.add(m);equipment.set(e,m);m.position.set(plots[e.place][0]+e.x,0,plots[e.place][1]+e.z);if(e.n==='塀'){for(let x of [-.68,.68])part(m,box,0x956d43,x,.4,0,.12,.8,.15);part(m,box,0xc39865,0,.51,0,1.65,.22,.14)}else{part(m,tube,0xae8554,0,.8,0,.34,1.6,.34);let fan=new T.Group();m.add(fan);fan.position.set(0,1.45,.32);for(let i=0;i<2;i++)part(fan,box,0xffedc7,0,0,0,.15,1.64,.06).rotation.z=i*Math.PI/2;m.userData.fan=fan}}if(m.userData.fan)m.userData.fan.rotation.z=tick}
  for(let [b,m] of insects)if(!s.bugs.includes(b)){world.remove(m);insects.delete(b)}
- for(let b of s.bugs){let m=insects.get(b);if(!m){m=new T.Group();world.add(m);insects.set(b,m);part(m,ball,b.big?0x945939:0x4b6d3a,0,0,0,.23,.13,.38);for(let side of [-1,1])part(m,ball,0xabbe70,side*.15,.08,0,.13,.055,.28);m.scale.setScalar(b.big?1.75:1)}m.position.set(plots[b.place][0]+b.x,.62+.17*Math.sin(tick*9+b.x),plots[b.place][1]+b.z)}
+ for(let b of s.bugs){let m=insects.get(b);if(!m){m=grasshopperModel(b.big);world.add(m);insects.set(b,m)}animateGrasshopper(m,b)}
 }
 function render3D(){
+ if(renderer.getPixelRatio()!==Math.min(devicePixelRatio,2))renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+ if(shopRoom)return renderShop();
  let w=cv.clientWidth,h=cv.clientHeight,r=w/h;let span=Math.max(6.1/r,7.4)/cameraZoom;
  if(cv.width!==Math.floor(w*renderer.getPixelRatio())||cv.height!==Math.floor(h*renderer.getPixelRatio()))renderer.setSize(w,h,false);
  cam.left=-span*r;cam.right=span*r;cam.top=span;cam.bottom=-span;cam.updateProjectionMatrix();
